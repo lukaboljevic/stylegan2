@@ -1,0 +1,5 @@
+# If you don't have an nvidia GPU, follow https://pytorch.org/get-started/locally/ for installing torch
+# torch
+# torchvision
+# torchaudio
+numpy
