@@ -15,15 +15,27 @@ class GeneratorBlock(nn.Module):
     def __init__(self, dim_latent, in_channels, out_channels):
         super().__init__()
 
-        # TODO Add noise in forward
         self.conv_block1 = GeneratorConvBlock(dim_latent, in_channels, out_channels)
         self.conv_block2 = GeneratorConvBlock(dim_latent, out_channels, out_channels)
-        self.to_rgb = ToRGB(dim_latent, out_channels)  # out_channels -> 3 channels
+        self.to_rgb = ToRGB(dim_latent, out_channels)  # converts out_channels to 3 channels by default
 
-    def forward(self, x, w):
-        # TODO Add noise
-        out = self.conv_block1(x, w)
-        out = self.conv_block2(out, w)
+    def forward(self, x, w, noise):
+        """
+        Parameters
+        ----------
+        x : input tensor of shape [batch_size, in_channels, height, width]
+        w : intermediate latent variable coming from the mapping network of shape
+            [batch_size, dim_latent]
+        noise : a tuple containing two random noise tensors, one for each convolution
+            block. Each noise tensor is of shape [batch_size, 1, block_resolution, block_resolution]
+            where block_resolution is the resolution (image size) of this block.
+
+        Returns
+        -------
+        out : tensor of shape [batch_size, out_channels, height, width]
+        """
+        out = self.conv_block1(x, w, noise[0])
+        out = self.conv_block2(out, w, noise[1])
         rgb = self.to_rgb(out, w)
 
         return out, rgb
@@ -49,16 +61,18 @@ class GeneratorConvBlock(nn.Module):
         self.activation = nn.LeakyReLU(0.2, inplace=True)
         self.eps = eps  # for numerical stability when demodulating
 
-        # TODO Add noise, noise scaling parameter
+        self.noise_scaling_parameter = nn.Parameter(torch.zeros([]))
         
 
-    def forward(self, x, w):
+    def forward(self, x, w, noise):
         """
         Parameters
         ----------
         x : input tensor of shape [batch_size, in_channels, height, width]
         w : intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
+        noise : random noise tensor of shape [batch_size, 1, block_resolution, block_resolution]
+            where block_resolution is the resolution (image size) of this block.
 
         Returns
         -------
@@ -92,12 +106,14 @@ class GeneratorConvBlock(nn.Module):
         # out shape is [1, batch_size * out_channels, height, width]
         out = F.conv2d(x, weight=demodulated_weight, padding=1, groups=batch_size)  # padding=1 since kernel_size=3
         
-        # Reshape back to the right size ([batch_size, out_channels, height, width]) and add to bias
-        # "Reshape" bias to 1, out_channels, 1, 1 so they can be added
+        # Reshape back to the right size ([batch_size, out_channels, height, width])
         out = out.reshape(-1, out_channels, height, width)
-        out = self.activation(out + self.bias[None, :, None, None])
+        
+        # Add the scaled noise to the current output
+        out = out + self.noise_scaling_parameter * noise
 
-        # TODO noise!
+        # "Reshape" bias to 1, out_channels, 1, 1 so they can be added
+        out = self.activation(out + self.bias[None, :, None, None])
 
         return out
 

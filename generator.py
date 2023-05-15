@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from mapping_network import MappingNetwork
 from general_utils.upsample import Upsample
+from general_utils.generator_noise import generate_noise
 from generator_utils.to_rgb import ToRGB
 from generator_utils.generator_block import GeneratorBlock, GeneratorConvBlock
 
@@ -33,15 +34,20 @@ class Generator(nn.Module):
         # Upsampling operation is applied after each generator block
         self.upsample = Upsample()
 
-        # TODO add noise
 
-
-    def forward(self, w):
+    def forward(self, w, noise):
         """
         Parameters
         ----------
         w : intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
+        noise : a list of tuples, one tuple for each generator block, with each tuple
+            containing the random noise input for the given generator block. The first 
+            generator block receives only one noise tensor, while the rest receive two.
+            Each random noise tensor is of shape [batch_size, 1, block_resolution, block_resolution],
+            where block_resolution is the resolution (image size) at a particular block.
+            For example, in the first block, the resolution is 4x4. The second block's
+            resolution is 8x8, third block's resolution is 16x16 and so on.
 
         Returns
         -------
@@ -49,7 +55,6 @@ class Generator(nn.Module):
             For the time being, image_height = image_width = 64
         """
         # TODO for now I'm not going to do style mixing regularization (multiple ws)
-        # TODO add noise
 
         batch_size, _ = w.shape
 
@@ -59,17 +64,17 @@ class Generator(nn.Module):
         # First generator block
         # Output of conv_block1 is shape [batch_size, out_channels, height, width] (out_channels = 512)
         # rgb_out is shape [batch_size, 3, height, width]
-        x = self.conv_block1(inp, w)
+        x = self.conv_block1(inp, w, noise[0][0])  # first block receives only one noise tensor
         rgb_out = self.to_rgb1(x, w)
 
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks, start=1):
             # Upsample the output from previous generator block first by 2x
             x = self.upsample(x)
 
             # Obtain the output of current generator block - feature map and RGB image at given scale
             # x is shape [batch_size, out_channels, height, width] (out_channels, height, width refer to the current block)
             # rgb_out is shape [batch_size, 3, height, width]
-            x, rgb_new = block(x, w)
+            x, rgb_new = block(x, w, noise[i])
 
             # Upsample the previous RGB and add it to the current
             rgb_out = self.upsample(rgb_out) + rgb_new
@@ -91,7 +96,9 @@ z = torch.randn(batch_size, dim_latent).to(device)
 w = mapping(z)
 
 generator = Generator(dim_latent).to(device)
-rgb = generator(w)
+generator_noise = generate_noise(batch_size, device)
+
+rgb = generator(w, generator_noise)
 print("-" * 80)
 print("Yay!")
 print(rgb.shape)
