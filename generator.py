@@ -1,14 +1,19 @@
 import torch
 import torch.nn as nn
+from torchinfo import summary
 
 from mapping_network import MappingNetwork
 from general_utils.upsample import Upsample
 from general_utils.generator_noise import generate_noise
+from general_utils.proxy import proxy
 from generator_utils.to_rgb import ToRGB
 from generator_utils.generator_block import GeneratorBlock, GeneratorConvBlock
 
 
 class Generator(nn.Module):
+    """
+    This module corresponds to the synthesis network from the paper(s).
+    """
     def __init__(self, dim_latent=512):
         super().__init__()
 
@@ -79,8 +84,10 @@ class Generator(nn.Module):
             # Upsample the previous RGB and add it to the current
             rgb_out = self.upsample(rgb_out) + rgb_new
 
-        # Generator outputs
+        # Generator output
         return rgb_out
+    
+    __call__ = proxy(forward)
 
 
 # Test current implementation of generator
@@ -102,3 +109,5 @@ rgb = generator(w, generator_noise)
 print("-" * 80)
 print("Yay!")
 print(rgb.shape)
+
+print(summary(generator))

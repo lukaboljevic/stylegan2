@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from general_utils.equalized import EqualizedLinear
+from general_utils.proxy import proxy
 
 
 """
@@ -74,4 +75,5 @@ class ToRGB(nn.Module):
         # linear activation i.e. passthrough
 
         return out
-
+    
+    __call__ = proxy(forward)

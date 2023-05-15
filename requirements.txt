@@ -3,6 +3,7 @@
 # torchvision
 # torchaudio
 numpy==1.24.1
+torchinfo==1.8.0
 ## The following requirements were added by pip freeze:
 certifi==2022.12.7
 charset-normalizer==2.1.1

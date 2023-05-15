@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from proxy import proxy
+
 
 class Upsample(nn.Module):
     """
@@ -16,6 +18,8 @@ class Upsample(nn.Module):
     def forward(self, x):
         x = self.upsample(x)
         return self.smooth(x)
+    
+    __call__ = proxy(forward)
 
 
 class Downsample(nn.Module):
@@ -31,7 +35,8 @@ class Downsample(nn.Module):
         # Smoothing is performed before downsampling
         x = self.smooth(x)
         return F.interpolate(x, scale_factor=0.5, mode="bilinear")
-
+    
+    __call__ = proxy(forward)
 
 
 class Smooth(nn.Module):
@@ -67,3 +72,5 @@ class Smooth(nn.Module):
         x = self.pad(x)
         x = F.conv2d(x, self.kernel)
         return x.view(bs, ic, h, w)
+    
+    __call__ = proxy(forward)

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from general_utils.equalized import EqualizedLinear
 from generator_utils.to_rgb import ToRGB
+from general_utils.proxy import proxy
 
 
 class GeneratorBlock(nn.Module):
@@ -39,6 +40,8 @@ class GeneratorBlock(nn.Module):
         rgb = self.to_rgb(out, w)
 
         return out, rgb
+    
+    __call__ = proxy(forward)
 
 
 
@@ -58,7 +61,7 @@ class GeneratorConvBlock(nn.Module):
         self.weight = nn.Parameter(torch.randn(1, out_channels, in_channels, kernel_size, kernel_size))
         self.bias = nn.Parameter(torch.zeros(out_channels))
 
-        self.activation = nn.LeakyReLU(0.2, inplace=True)
+        self.activation = nn.LeakyReLU(0.2, inplace=True)  # negative_slope = 0.2 is used ever since Progressive GAN
         self.eps = eps  # for numerical stability when demodulating
 
         self.noise_scaling_parameter = nn.Parameter(torch.zeros([]))
@@ -116,4 +119,6 @@ class GeneratorConvBlock(nn.Module):
         out = self.activation(out + self.bias[None, :, None, None])
 
         return out
+    
+    __call__ = proxy(forward)
 

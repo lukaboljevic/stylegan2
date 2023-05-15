@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from proxy import proxy
+
 
 """
 Progressive GAN paper introduced so called "equalized learning rate" (section 4.1).
@@ -38,17 +40,21 @@ class EqualizedLinear(nn.Module):
         coming from the mapping network, so in_features = dim_latent)
         """
         return F.linear(x, weight=self.weight * self.c, bias=self.bias)
+    
+    __call__ = proxy(forward)
 
 
 class EqualizedConv2d(nn.Module):
     # Module is very similar as nn.Conv2d
-    def __init__(self, in_channels, out_channels, kernel_size, padding=0, bias_init=0):
+    def __init__(self, in_channels, out_channels, kernel_size, padding=0):
         super().__init__()
 
         self.padding = padding
         self.c = 1 / math.sqrt(in_channels * kernel_size * kernel_size)
         self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
-        self.bias = nn.Parameter(torch.ones(out_channels) * bias_init)  # bias will be initialized to 0 or 1 typically
+        self.bias = nn.Parameter(torch.ones(out_channels))
 
     def forward(self, x):
         return F.conv2d(x, weight=self.weight * self.c, bias=self.bias, padding=self.padding)
+
+    __call__ = proxy(forward)
