@@ -23,11 +23,12 @@ class DiscriminatorLoss(nn.Module):
     """
     Discriminator loss from the original GAN paper (utilized from StyleGAN onwards)
     """
+
     def forward(self, real, fake):
         real_loss = F.softplus(-real)  # log(D(x)) from original GAN
         fake_loss = F.softplus(fake)  # log(1 - D(G(z)))
         return real_loss.mean() + fake_loss.mean()
-    
+
     __call__ = proxy(forward)
 
 
@@ -35,10 +36,11 @@ class GeneratorLoss(nn.Module):
     """
     Non-saturating generator loss from the original GAN paper (stated just above Figure 1)
     """
+
     def forward(self, fake):
         fake_loss = F.softplus(-fake)
         return fake_loss.mean()
-    
+
     __call__ = proxy(forward)
 
 
@@ -46,18 +48,21 @@ class GradientPenalty(nn.Module):
     """
     The R1 regularization used alongside discriminator loss (utilized from StyleGAN onwards)
     """
+
     def forward(self, x, d: torch.Tensor):
         batch_size = x.shape[0]
 
-        gradients, *_ = torch.autograd.grad(outputs=d,
-                                            inputs=x,
-                                            grad_outputs=d.new_ones(d.shape),
-                                            create_graph=True)
-        
+        gradients, *_ = torch.autograd.grad(
+            outputs=d,
+            inputs=x,
+            grad_outputs=d.new_ones(d.shape),
+            create_graph=True
+        )
+
         gradients = gradients.reshape(batch_size, -1)
-        norm = gradients.norm(2, dim=-1)        
+        norm = gradients.norm(2, dim=-1)
         return torch.mean(norm ** 2)
-    
+
     __call__ = proxy(forward)
 
 
@@ -65,12 +70,13 @@ class PathLengthRegularization(nn.Module):
     """
     Path length regularization used alongside generator loss, introduced in StyleGAN2
     """
+
     def __init__(self, beta):
         super().__init__()
 
         self.beta = beta
-        self.steps = nn.Parameter(torch.tensor(0.), requires_grad=False)
-        self.exp_sum_a = nn.Parameter(torch.tensor(0.), requires_grad=False)
+        self.steps = nn.Parameter(torch.tensor(0.0), requires_grad=False)
+        self.exp_sum_a = nn.Parameter(torch.tensor(0.0), requires_grad=False)
 
     def forward(self, x, w):
         """
@@ -79,19 +85,21 @@ class PathLengthRegularization(nn.Module):
         print(f"{__class__.__name__} x shape:", x.shape)
         print(f"{__class__.__name__} w shape:", w.shape)
         # x, w should be [batch_size, 3, height, width] and [batch_size, dim_latent]
-        
+
         device = x.device
-        
+
         image_size = x.shape[2] * x.shape[3]
-        
+
         y = torch.randn(x.shape, device=device)
         output = (x * y).sum() / math.sqrt(image_size)
-        
-        gradients, *_ = torch.autograd.grad(outputs=output,
-                                            inputs=w,
-                                            grad_outputs=torch.ones(output.shape, device=device),
-                                            create_graph=True)
-        
+
+        gradients, *_ = torch.autograd.grad(
+            outputs=output,
+            inputs=w,
+            grad_outputs=torch.ones(output.shape, device=device),
+            create_graph=True,
+        )
+
         norm = (gradients ** 2).sum(dim=2).mean(dim=1).sqrt()
 
         if self.steps > 0:
@@ -99,10 +107,10 @@ class PathLengthRegularization(nn.Module):
             loss = torch.mean((norm - a) ** 2)
         else:
             loss = norm.new_tensor(0)
-        
+
         mean = norm.mean().detach()
         self.exp_sum_a.mul_(self.beta).add_(mean, alpha=1 - self.beta)
-        self.steps.add_(1.)
+        self.steps.add_(1.0)
 
         return loss
 

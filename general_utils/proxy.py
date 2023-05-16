@@ -3,6 +3,7 @@ from typing import Callable, TypeVar, cast
 
 C = TypeVar("C", bound=Callable)
 
+
 def proxy(f: C) -> C:
     """
     Proxy function signature map for `Module.__call__` type hint.

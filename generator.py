@@ -11,6 +11,7 @@ class Generator(nn.Module):
     """
     This module corresponds to the synthesis network from the paper(s).
     """
+
     def __init__(self, dim_latent=512):
         super().__init__()
 
@@ -26,16 +27,17 @@ class Generator(nn.Module):
         self.to_rgb1 = ToRGB(dim_latent, 512)
 
         # Other blocks i.e. parts of the generator
-        self.blocks = nn.ModuleList([
-            GeneratorBlock(dim_latent, 512, 512), # input is 8x8, 512 channels, output is 8x8, 512
-            GeneratorBlock(dim_latent, 512, 512), # input is 16x16, 512 channels, output is 16x16, 512
-            GeneratorBlock(dim_latent, 512, 512), # input is 32x32, 512 channels, output is 32x32, 512
-            GeneratorBlock(dim_latent, 512, 256), # input is 64x64, 512 channels, output is 64x64, 256
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                GeneratorBlock(dim_latent, 512, 512),  # input is 8x8, 512 channels, output is 8x8, 512
+                GeneratorBlock(dim_latent, 512, 512),  # input is 16x16, 512 channels, output is 16x16, 512
+                GeneratorBlock(dim_latent, 512, 512),  # input is 32x32, 512 channels, output is 32x32, 512
+                GeneratorBlock(dim_latent, 512, 256),  # input is 64x64, 512 channels, output is 64x64, 256
+            ]
+        )
 
         # Upsampling operation is applied after each generator block
         self.upsample = Upsample()
-
 
     def forward(self, w, noise):
         """
@@ -44,7 +46,7 @@ class Generator(nn.Module):
         w : intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
         noise : a list of tuples, one tuple for each generator block, with each tuple
-            containing the random noise input for the given generator block. The first 
+            containing the random noise input for the given generator block. The first
             generator block receives only one noise tensor, while the rest receive two.
             Each random noise tensor is of shape [batch_size, 1, block_resolution, block_resolution],
             where block_resolution is the resolution (image size) at a particular block.
@@ -83,5 +85,5 @@ class Generator(nn.Module):
 
         # Generator output
         return rgb_out
-    
+
     __call__ = proxy(forward)

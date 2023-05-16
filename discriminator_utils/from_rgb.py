@@ -9,6 +9,7 @@ class FromRGB(nn.Module):
     The FromRGB layer in the discriminator is much simpler than the ToRGB layer in the
     generator - it is just a Conv2d layer using scaled weights (equalized learning rate).
     """
+
     def __init__(self, out_channels, in_channels=3, kernel_size=1):
         super().__init__()
 
@@ -29,6 +30,5 @@ class FromRGB(nn.Module):
         """
         x = self.conv(x)
         return self.activation(x)
-    
-    __call__ = proxy(forward)
 
+    __call__ = proxy(forward)

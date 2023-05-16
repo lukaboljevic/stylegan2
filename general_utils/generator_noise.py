@@ -33,7 +33,7 @@ def generate_noise(batch_size, device):
         # At the moment, we only go up to 64x64 size
         if resolution == 64:
             break
-        
+
         # Resolution of next generator block is doubled
         resolution *= 2
 

@@ -10,7 +10,7 @@ from general_utils.proxy import proxy
 class ToRGB(nn.Module):
     """
     Although not visible in any of the papers (Progressive GAN, StyleGANs) that mention toRGB,
-    the ToRGB layer has got very similar structure as the GeneratorConvBlock layer. 
+    the ToRGB layer has got very similar structure as the GeneratorConvBlock layer.
     The differences are:
         - ToRGB doesn't do weight demodulation, only modulation
         - ToRGB uses linear activation instead of leaky ReLU
@@ -19,18 +19,19 @@ class ToRGB(nn.Module):
         https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L310
     or other publicly available source codes.
     """
+
     def __init__(self, dim_latent, in_channels, out_channels=3, kernel_size=1):
         super().__init__()
 
         # The affine transformation layer that uses equalized learning rate
-        self.affine = EqualizedLinear(dim_latent, in_channels, bias_init=1.0)  # StyleGAN2 initialized affine transformation layer bias to 1
+        # StyleGAN2 initialized affine transformation layer bias to 1
+        self.affine = EqualizedLinear(dim_latent, in_channels, bias_init=1.0)
 
         # The (grouped!) convolution operation also uses equalized learning rate
         self.c = 1 / math.sqrt(in_channels * kernel_size * kernel_size)
         self.weight = nn.Parameter(torch.randn(1, out_channels, in_channels, kernel_size, kernel_size))
         self.bias = nn.Parameter(torch.zeros(out_channels))
         # activation function is linear ("passthrough")
-
 
     def forward(self, x, w):
         """
@@ -73,5 +74,5 @@ class ToRGB(nn.Module):
         # linear activation i.e. passthrough
 
         return out
-    
+
     __call__ = proxy(forward)

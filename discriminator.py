@@ -11,18 +11,21 @@ class Discriminator(nn.Module):
     Discriminator structure has not changed much since Progressive GAN, where the structure
     is described in Table 2. In StyleGAN2, they opt for a "residual" discriminator (Figure 7)
     """
+
     def __init__(self):
         super().__init__()
 
-        # Since we're for now limited to 64x64 image size, converts [batch_size, 3, 64, 64] into [batch_size, 256, 64, 64] 
+        # Since we're for now limited to 64x64 image size, converts [batch_size, 3, 64, 64] into [batch_size, 256, 64, 64]
         self.from_rgb = FromRGB(256)
 
-        self.blocks = nn.Sequential(*[
-            DiscriminatorBlock(256, 512),  # from [batch_size, 256, 64, 64] to [batch_size, 512, 32, 32]
-            DiscriminatorBlock(512, 512),  # from [batch_size, 512, 32, 32] to [batch_size, 512, 16, 16]
-            DiscriminatorBlock(512, 512),  # from [batch_size, 512, 16, 16] to [batch_size, 512, 8, 8]
-            DiscriminatorBlock(512, 512),  # from [batch_size, 512, 8, 8] to [batch_size, 512, 4, 4]
-        ])
+        self.blocks = nn.Sequential(
+            *[
+                DiscriminatorBlock(256, 512),  # from [batch_size, 256, 64, 64] to [batch_size, 512, 32, 32]
+                DiscriminatorBlock(512, 512),  # from [batch_size, 512, 32, 32] to [batch_size, 512, 16, 16]
+                DiscriminatorBlock(512, 512),  # from [batch_size, 512, 16, 16] to [batch_size, 512, 8, 8]
+                DiscriminatorBlock(512, 512),  # from [batch_size, 512, 8, 8] to [batch_size, 512, 4, 4]
+            ]
+        )
 
         # TODO MiniBatchStdDev not implemented for now
 
@@ -39,7 +42,6 @@ class Discriminator(nn.Module):
         # Output is of shape [batch_size, 1]
         self.out_linear = EqualizedLinear(512, 1)
         # activation for out_linear is linear i.e. passthrough
-
 
     def forward(self, x):
         """
@@ -67,5 +69,5 @@ class Discriminator(nn.Module):
         # Apply final two (linear) layers
         x = self.linear_activation(self.linear(x))
         return self.out_linear(x)
-    
+
     __call__ = proxy(forward)

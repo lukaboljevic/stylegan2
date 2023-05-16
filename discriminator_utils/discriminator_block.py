@@ -8,12 +8,13 @@ from general_utils.proxy import proxy
 
 class DiscriminatorBlock(nn.Module):
     """
-    The core structure of the discriminator block used in StyleGAN2 has not been changed 
+    The core structure of the discriminator block used in StyleGAN2 has not been changed
     since Progressive GAN. In the paper for Progressive GAN, the structure of discriminator
     (and generator) is very nicely shown in Table 2.
 
     In StyleGAN2, they decided to make a slight change and use a "residual" discriminator (Figure 7c).
     """
+
     def __init__(self, in_channels, out_channels, kernel_size=3):
         super().__init__()
 
@@ -21,7 +22,7 @@ class DiscriminatorBlock(nn.Module):
             EqualizedConv2d(in_channels, in_channels, kernel_size=kernel_size),
             nn.LeakyReLU(0.2, inplace=True),
             EqualizedConv2d(in_channels, out_channels, kernel_size=kernel_size),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
         # Convolution used for the residual part of the block
@@ -30,12 +31,12 @@ class DiscriminatorBlock(nn.Module):
         # Downsampling used before the residual 1x1 convolution, or after the two 3x3 ones
         self.downsample = Downsample()
 
-        # From StyleGAN2, section 4.1: "In residual network architectures, the addition of two 
+        # From StyleGAN2, section 4.1: "In residual network architectures, the addition of two
         # paths leads to a doubling of signal variance, which we cancel by multiplying with 1/√2.
         # This is crucial for our networks, whereas in classification resnets the issue is
         # typically hidden by batch normalization."
         self.scale = 1 / math.sqrt(2)
-    
+
     def forward(self, x):
         """
         Parameters
@@ -57,4 +58,3 @@ class DiscriminatorBlock(nn.Module):
         return (out + residual) * self.scale
 
     __call__ = proxy(forward)
-

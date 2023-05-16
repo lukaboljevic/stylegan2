@@ -30,14 +30,14 @@ class EqualizedLinear(nn.Module):
 
         self.c = 1 / math.sqrt(in_features)
         self.weight = nn.Parameter(torch.randn(out_features, in_features))
-        self.bias = nn.Parameter(torch.ones(out_features) * bias_init)  # bias will be initialized to 0 or 1 typically
+        self.bias = nn.Parameter(torch.ones(out_features) * bias_init)  # initialize to 0 or 1
 
     def forward(self, x):
         """
         Parameters
         ----------
         x : tensor of shape [batch_size, in_features]
-            - For generator, x = w, the intermediate latent variable coming from the mapping 
+            - For generator, x = w, the intermediate latent variable coming from the mapping
             network, so in_features = dim_latent
             - For discriminator, x is coming from the very last 2 layers
 
@@ -46,7 +46,7 @@ class EqualizedLinear(nn.Module):
         out : tensor of shape [batch_size, out_features]
         """
         return F.linear(x, weight=self.weight * self.c, bias=self.bias)
-    
+
     __call__ = proxy(forward)
 
 

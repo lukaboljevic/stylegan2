@@ -13,6 +13,7 @@ class GeneratorBlock(nn.Module):
     One generator block consists of the two convolution layers with weight modulation and
     demodulation, and the ToRGB layer
     """
+
     def __init__(self, dim_latent, in_channels, out_channels):
         super().__init__()
 
@@ -40,9 +41,8 @@ class GeneratorBlock(nn.Module):
         rgb = self.to_rgb(out, w)
 
         return out, rgb
-    
-    __call__ = proxy(forward)
 
+    __call__ = proxy(forward)
 
 
 class GeneratorConvBlock(nn.Module):
@@ -50,11 +50,13 @@ class GeneratorConvBlock(nn.Module):
     One of the convolution blocks that performs group convolution using modulation and
     demodulation of rescaled weights (equalized learning rate trick).
     """
+
     def __init__(self, dim_latent, in_channels, out_channels, kernel_size=3, eps=1e-8):
         super().__init__()
 
         # The affine transformation layer that uses equalized learning rate
-        self.affine = EqualizedLinear(dim_latent, in_channels, bias_init=1.0)  # StyleGAN2 initialized affine transformation layer bias to 1
+        # StyleGAN2 initialized affine transformation layer bias to 1
+        self.affine = EqualizedLinear(dim_latent, in_channels, bias_init=1.0)
 
         # The (grouped!) convolution operation also uses equalized learning rate
         self.c = 1 / math.sqrt(in_channels * kernel_size * kernel_size)
@@ -65,7 +67,6 @@ class GeneratorConvBlock(nn.Module):
         self.eps = eps  # for numerical stability when demodulating
 
         self.noise_scaling_parameter = nn.Parameter(torch.zeros([]))
-        
 
     def forward(self, x, w, noise):
         """
@@ -86,7 +87,7 @@ class GeneratorConvBlock(nn.Module):
 
         # Get style and reshape so it can be multiplied with weights
         style = self.affine(w).view(batch_size, 1, in_channels, 1, 1)
-        
+
         # Modulate the rescaled weights (equalized learning rate trick)
         # Shape is [batch_size, out_channels, in_channels, kernel_size, kernel_size]
         modulated_weight = (self.weight * self.c) * style
@@ -108,10 +109,10 @@ class GeneratorConvBlock(nn.Module):
         # Perform group convolution on the demodulated weights
         # out shape is [1, batch_size * out_channels, height, width]
         out = F.conv2d(x, weight=demodulated_weight, padding=1, groups=batch_size)  # padding=1 since kernel_size=3
-        
+
         # Reshape back to the right size ([batch_size, out_channels, height, width])
         out = out.reshape(-1, out_channels, height, width)
-        
+
         # Add the scaled noise to the current output
         out = out + self.noise_scaling_parameter * noise
 
@@ -119,6 +120,5 @@ class GeneratorConvBlock(nn.Module):
         out = self.activation(out + self.bias[None, :, None, None])
 
         return out
-    
-    __call__ = proxy(forward)
 
+    __call__ = proxy(forward)
