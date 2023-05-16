@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from proxy import proxy
+from .proxy import proxy
 
 
 """
@@ -36,8 +36,14 @@ class EqualizedLinear(nn.Module):
         """
         Parameters
         ----------
-        x : tensor of shape [batch_size, in_features] (usually, x = w, the intermediate latent variable
-        coming from the mapping network, so in_features = dim_latent)
+        x : tensor of shape [batch_size, in_features]
+            - For generator, x = w, the intermediate latent variable coming from the mapping 
+            network, so in_features = dim_latent
+            - For discriminator, x is coming from the very last 2 layers
+
+        Returns
+        -------
+        out : tensor of shape [batch_size, out_features]
         """
         return F.linear(x, weight=self.weight * self.c, bias=self.bias)
     
@@ -46,15 +52,24 @@ class EqualizedLinear(nn.Module):
 
 class EqualizedConv2d(nn.Module):
     # Module is very similar as nn.Conv2d
-    def __init__(self, in_channels, out_channels, kernel_size, padding=0):
+    def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
 
-        self.padding = padding
+        self.padding = kernel_size // 2  # eg. padding=1 for 3x3 conv, padding=0 for 1x1 conv
         self.c = 1 / math.sqrt(in_channels * kernel_size * kernel_size)
         self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
         self.bias = nn.Parameter(torch.ones(out_channels))
 
     def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : input tensor of shape [batch_size, in_channels, height, width]
+
+        Returns
+        -------
+        out : output tensor of shape [batch_size, out_channels, height, width]
+        """
         return F.conv2d(x, weight=self.weight * self.c, bias=self.bias, padding=self.padding)
 
     __call__ = proxy(forward)

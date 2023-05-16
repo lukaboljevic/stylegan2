@@ -1,9 +1,13 @@
 import torch.nn as nn
 
 from general_utils.equalized import EqualizedLinear
+from general_utils.proxy import proxy
 
 
 class MappingNetwork(nn.Module):
+    """
+    Implements the mapping network introduced in StyleGAN.
+    """
     def __init__(self, dim_latent=512):  # dimension of z/w from latent space Z/W
         super().__init__()
 
@@ -26,3 +30,5 @@ class MappingNetwork(nn.Module):
         """
         z = nn.functional.normalize(z)  # dim=1 is default
         return self.net(z)
+    
+    __call__ = proxy(forward)

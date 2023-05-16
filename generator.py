@@ -1,11 +1,8 @@
 import torch
 import torch.nn as nn
-from torchinfo import summary
 
-from mapping_network import MappingNetwork
-from general_utils.upsample import Upsample
-from general_utils.generator_noise import generate_noise
 from general_utils.proxy import proxy
+from general_utils.upsample import Upsample
 from generator_utils.to_rgb import ToRGB
 from generator_utils.generator_block import GeneratorBlock, GeneratorConvBlock
 
@@ -88,26 +85,3 @@ class Generator(nn.Module):
         return rgb_out
     
     __call__ = proxy(forward)
-
-
-# Test current implementation of generator
-
-dim_latent = 512
-image_size = 64
-batch_size = 7  # intentionally a 'weird' number so it can be easily distinguished
-
-device = "cuda"
-mapping = MappingNetwork(dim_latent).to(device)
-
-z = torch.randn(batch_size, dim_latent).to(device)
-w = mapping(z)
-
-generator = Generator(dim_latent).to(device)
-generator_noise = generate_noise(batch_size, device)
-
-rgb = generator(w, generator_noise)
-print("-" * 80)
-print("Yay!")
-print(rgb.shape)
-
-print(summary(generator))

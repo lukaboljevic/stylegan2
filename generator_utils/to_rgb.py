@@ -7,20 +7,18 @@ from general_utils.equalized import EqualizedLinear
 from general_utils.proxy import proxy
 
 
-"""
-Although not visible in any of the papers (Progressive GAN, StyleGANs) that mention toRGB,
-the ToRGB layer has got very similar structure as the GeneratorConvBlock layer. 
-The differences are:
-    - ToRGB doesn't do weight demodulation, only modulation
-    - ToRGB uses linear activation instead of leaky ReLU
-
-The way we know the structure of ToRGB is eg. StyleGAN2-ADA official code:
-    https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L310
-or other publicly available source codes.
-"""
-
-
 class ToRGB(nn.Module):
+    """
+    Although not visible in any of the papers (Progressive GAN, StyleGANs) that mention toRGB,
+    the ToRGB layer has got very similar structure as the GeneratorConvBlock layer. 
+    The differences are:
+        - ToRGB doesn't do weight demodulation, only modulation
+        - ToRGB uses linear activation instead of leaky ReLU
+
+    The way we know the structure of ToRGB is eg. StyleGAN2-ADA official code:
+        https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L310
+    or other publicly available source codes.
+    """
     def __init__(self, dim_latent, in_channels, out_channels=3, kernel_size=1):
         super().__init__()
 
