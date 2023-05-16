@@ -1,9 +1,9 @@
 import torch.nn as nn
 
-from general_utils.proxy import proxy
-from general_utils.equalized import EqualizedConv2d, EqualizedLinear
 from discriminator_utils.from_rgb import FromRGB
 from discriminator_utils.discriminator_block import DiscriminatorBlock
+from general_utils.equalized import EqualizedConv2d, EqualizedLinear
+from general_utils.proxy import proxy
 
 
 class Discriminator(nn.Module):

@@ -2,9 +2,9 @@ import torch
 from torchinfo import summary
 
 from general_utils.generator_noise import generate_noise
-from mapping_network import MappingNetwork
-from generator import Generator
-from discriminator import Discriminator
+from model.mapping_network import MappingNetwork
+from model.generator import Generator
+from model.discriminator import Discriminator
 
 
 """

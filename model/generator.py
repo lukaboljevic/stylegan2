@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 
-from general_utils.proxy import proxy
-from general_utils.upsample import Upsample
 from generator_utils.to_rgb import ToRGB
 from generator_utils.generator_block import GeneratorBlock, GeneratorConvBlock
+from general_utils.upsample import Upsample
+from general_utils.proxy import proxy
 
 
 class Generator(nn.Module):

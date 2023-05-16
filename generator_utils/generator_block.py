@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from general_utils.equalized import EqualizedLinear
 from generator_utils.to_rgb import ToRGB
+from general_utils.equalized import EqualizedLinear
 from general_utils.proxy import proxy
 
 
