@@ -2,3 +2,4 @@
 venv/
 celeba/
 __pycache__/
+checkpoints/

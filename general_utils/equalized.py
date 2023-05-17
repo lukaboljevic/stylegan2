@@ -13,7 +13,7 @@ The idea of equalized learning rate is explained in that section 4.1, but what w
 to know is that, instead of working with weights of individual layers as usual, we scale
 them with c, He's initialization constant.
 
-The reason why c is calculated the way it is way because of publicly available source code.
+The reason why c is calculated the way it is is because of publicly available source code.
 For example, from the official implementation for StyleGAN2-ADA:
     1. FC layer: https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L102
     2. Conv2d layer: https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L144

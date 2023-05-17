@@ -1,12 +1,14 @@
-# If you don't have an nvidia GPU, follow https://pytorch.org/get-started/locally/ for installing torch
+# Follow https://pytorch.org/get-started/locally/ for installing torch
 # torch
 # torchvision
 # torchaudio
 numpy==1.24.1
 torchinfo==1.8.0
+tqdm==4.65.0
 ## The following requirements were added by pip freeze:
 certifi==2022.12.7
 charset-normalizer==2.1.1
+colorama==0.4.6
 filelock==3.9.0
 idna==3.4
 Jinja2==3.1.2
