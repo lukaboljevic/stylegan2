@@ -1,6 +1,9 @@
 import os
+import numpy as np
 import torch
 import torch.optim as optim
+from torchvision.utils import make_grid
+from PIL import Image
 from tqdm import tqdm
 
 from general_utils.generator_noise import generate_noise
@@ -29,6 +32,7 @@ class StyleGan2():
         num_training_images=-1,
         save_every_num_epoch=-1,
         use_loss_regularization=False,
+        generate_progress_images=True
     ):
         """
         Parameters
@@ -46,12 +50,15 @@ class StyleGan2():
             to not save any checkpoints. Default value is -1.
         use_loss_regularization : whether to use GradientPenalty and PathLengthRegularization modules
             for regularizing discriminator and generator losses respectively. Default value is False.
+        generate_progress_images : whether to generate a grid of images at the end of each epoch to
+            show current training progress. Default value is True.
         """
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.num_training_images = num_training_images
         self.save_every_num_epoch = save_every_num_epoch
         self.use_regularization = use_loss_regularization
+        self.generate_progress_images = generate_progress_images
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Hyperparameters (taken from StyleGAN papers)
@@ -112,7 +119,7 @@ class StyleGan2():
         self.discriminator_optim.zero_grad()
 
         # Generate images
-        generated_images, _ = self.generate_images()
+        generated_images, _ = self._generator_output()
 
         # Discriminator classification for generated images
         fake_output = self.discriminator(generated_images.detach())
@@ -154,7 +161,7 @@ class StyleGan2():
         self.mapping_network_optim.zero_grad()
 
         # Generate images
-        generated_images, w = self.generate_images()
+        generated_images, w = self._generator_output()
 
         # Discriminator classification for generated images
         fake_output = self.discriminator(generated_images)
@@ -221,7 +228,7 @@ class StyleGan2():
         checkpoint=True
     ):
         """
-        Save a general checkpoint, using `base_path` as the root directory. If checkpoint=True,
+        Save a general checkpoint, using `base_path` as the root directory. If `checkpoint=True`,
         saves the model in `base_path/checkpoints` directory, otherwise it is saved in `base_path`.
         """
         if checkpoint:
@@ -258,7 +265,36 @@ class StyleGan2():
         LOGGER.info("Model saved")
 
 
-    def generate_images(self, batch_size=-1):
+    def _generate_images(self,
+        current_num_epochs,
+        num_images=16,
+        num_rows=4,
+        base_path=os.getcwd(),
+        checkpoint=True
+    ):
+        """
+        Generate images using the current state of generator, using `base_path` as the root directory.
+        If `checkpoint=True`, save to `base_path/checkpoints`, otherwise save to `base_path`.
+        """
+        if checkpoint:
+            save_dir = os.path.join(base_path, "checkpoints")
+        else:
+            save_dir = base_path
+
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs.png")
+
+        LOGGER.info(f"Generating progress images after {current_num_epochs} epochs")
+        with torch.no_grad():
+            images, _ = self._generator_output(num_images)
+            image_grid = make_grid(images, nrow=num_rows, padding=0).permute(1, 2, 0).cpu().numpy()
+            image_grid = Image.fromarray(np.uint8(image_grid*255)).convert("RGB")
+            image_grid.save(save_path)
+        LOGGER.info(f"Generated images saved to {save_path}")
+
+
+    def _generator_output(self, batch_size=-1):
         """
         Use the generator to generate `batch_size` images. Default value for `batch_size`
         is -1, meaning that self.batch_size is used in its place.
@@ -278,7 +314,7 @@ class StyleGan2():
         return generated_images, w
 
 
-    def save(self, base_path="./"):
+    def save_model(self, base_path="./"):
         """
         Save the final trained model to `base_path`.
         """
@@ -291,7 +327,7 @@ class StyleGan2():
         )
 
 
-    def train(self):
+    def train_model(self):
         # Don't think it makes that much of a difference but it's good practice
         self.mapping_network.train()
         self.generator.train()
@@ -312,6 +348,9 @@ class StyleGan2():
                 LOGGER.info(f"Average GEN loss: {avg_gen_loss}")
                 LOGGER.info(f"Average DISC loss: {avg_disc_loss}")
 
+                if self.generate_progress_images:
+                    self._generate_images(epoch+1)
+
                 save_counter += 1
                 if self.save_every_num_epoch == -1:
                     # Don't save any checkpoints
@@ -325,3 +364,17 @@ class StyleGan2():
         # Store the final loss values so we can save the entire model easily
         self.final_avg_gen_loss = avg_gen_loss
         self.final_avg_disc_loss = avg_disc_loss
+
+    
+    def generate_output(self, num_images, num_rows, base_path="./"):
+        """
+        Generate `num_images` images in a grid with `num_rows` rows using the fully
+        trained generator. Images are saved in `base_path`.
+        """
+        self._generate_images(
+            self.num_epochs,
+            num_images=num_images,
+            num_rows=num_rows,
+            base_path=base_path,
+            checkpoint=False
+        )
