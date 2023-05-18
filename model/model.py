@@ -288,6 +288,7 @@ class StyleGan2():
         LOGGER.info(f"Generating progress images after {current_num_epochs} epochs")
         with torch.no_grad():
             images, _ = self._generator_output(num_images)
+            images = torch.clamp(images, 0, 1)
             image_grid = make_grid(images, nrow=num_rows, padding=0).permute(1, 2, 0).cpu().numpy()
             image_grid = Image.fromarray(np.uint8(image_grid*255)).convert("RGB")
             image_grid.save(save_path)
