@@ -35,6 +35,8 @@ class StyleGan2():
         generate_progress_images=True
     ):
         """
+        Entire StyleGAN2 model put together.
+
         Parameters
         ----------
         root : path to the directory containing the `celeba` folder, either absolute or 
@@ -270,7 +272,8 @@ class StyleGan2():
         num_images=16,
         num_rows=4,
         base_path=os.getcwd(),
-        checkpoint=True
+        checkpoint=True,
+        truncation_psi=1,
     ):
         """
         Generate images using the current state of generator, using `base_path` as the root directory.
@@ -283,11 +286,10 @@ class StyleGan2():
 
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs.png")
+        save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs-{truncation_psi}trunc.png")
 
-        LOGGER.info(f"Generating progress images after {current_num_epochs} epochs")
         with torch.no_grad():
-            images, _ = self._generator_output(num_images)
+            images, _ = self._generator_output(num_images, truncation_psi=truncation_psi)
             images = torch.clamp(images, 0, 1)
             image_grid = make_grid(images, nrow=num_rows, padding=0).permute(1, 2, 0).cpu().numpy()
             image_grid = Image.fromarray(np.uint8(image_grid*255)).convert("RGB")
@@ -295,7 +297,7 @@ class StyleGan2():
         LOGGER.info(f"Generated images saved to {save_path}")
 
 
-    def _generator_output(self, batch_size=-1):
+    def _generator_output(self, batch_size=-1, truncation_psi=1):
         """
         Use the generator to generate `batch_size` images. Default value for `batch_size`
         is -1, meaning that self.batch_size is used in its place.
@@ -308,7 +310,7 @@ class StyleGan2():
 
         # Generate images
         z = torch.randn(batch_size, self.dim_latent).to(self.device)
-        w = self.mapping_network(z)
+        w = self.mapping_network(z, truncation_psi=truncation_psi)
         noise = generate_noise(batch_size, self.device)
         generated_images = self.generator(w, noise)
 
@@ -350,7 +352,9 @@ class StyleGan2():
                 LOGGER.info(f"Average DISC loss: {avg_disc_loss}")
 
                 if self.generate_progress_images:
-                    self._generate_images(epoch+1)
+                    LOGGER.info(f"Generating progress images after {epoch+1} epochs")
+                    self._generate_images(epoch+1, truncation_psi=0.5)
+                    self._generate_images(epoch+1, truncation_psi=1)
 
                 save_counter += 1
                 if self.save_every_num_epoch == -1:
@@ -367,7 +371,7 @@ class StyleGan2():
         self.final_avg_disc_loss = avg_disc_loss
 
     
-    def generate_output(self, num_images, num_rows, base_path="./"):
+    def generate_output(self, num_images, num_rows, base_path="./", truncation_psi=1):
         """
         Generate `num_images` images in a grid with `num_rows` rows using the fully
         trained generator. Images are saved in `base_path`.
@@ -377,5 +381,6 @@ class StyleGan2():
             num_images=num_images,
             num_rows=num_rows,
             base_path=base_path,
-            checkpoint=False
+            checkpoint=False,
+            truncation_psi=truncation_psi
         )

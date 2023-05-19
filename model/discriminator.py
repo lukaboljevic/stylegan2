@@ -7,12 +7,11 @@ from general_utils.proxy import proxy
 
 
 class Discriminator(nn.Module):
-    """
-    Discriminator structure has not changed much since Progressive GAN, where the structure
-    is described in Table 2. In StyleGAN2, they opt for a "residual" discriminator (Figure 7)
-    """
-
     def __init__(self):
+        """
+        Discriminator structure has not changed much since Progressive GAN, where the structure
+        is described in Table 2. In StyleGAN2, they opt for a "residual" discriminator (Figure 7)
+        """
         super().__init__()
 
         # Since we're for now limited to 64x64 image size, converts [batch_size, 3, 64, 64] into [batch_size, 256, 64, 64]

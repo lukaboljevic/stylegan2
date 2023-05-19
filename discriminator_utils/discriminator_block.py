@@ -7,15 +7,14 @@ from general_utils.proxy import proxy
 
 
 class DiscriminatorBlock(nn.Module):
-    """
-    The core structure of the discriminator block used in StyleGAN2 has not been changed
-    since Progressive GAN. In the paper for Progressive GAN, the structure of discriminator
-    (and generator) is very nicely shown in Table 2.
-
-    In StyleGAN2, they decided to make a slight change and use a "residual" discriminator (Figure 7c).
-    """
-
     def __init__(self, in_channels, out_channels, kernel_size=3):
+        """
+        The core structure of the discriminator block used in StyleGAN2 has not been changed
+        since Progressive GAN. In the paper for Progressive GAN, the structure of discriminator
+        (and generator) is very nicely shown in Table 2.
+
+        In StyleGAN2, they decided to make a slight change and use a "residual" discriminator (Figure 7c).
+        """
         super().__init__()
 
         self.convolutions = nn.Sequential(

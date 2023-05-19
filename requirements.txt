@@ -5,6 +5,7 @@
 numpy==1.24.1
 torchinfo==1.8.0
 tqdm==4.65.0
+pytorch-fid==0.3.0
 ## The following requirements were added by pip freeze:
 certifi==2022.12.7
 charset-normalizer==2.1.1
@@ -17,6 +18,7 @@ mpmath==1.2.1
 networkx==3.0
 Pillow==9.3.0
 requests==2.28.1
+scipy==1.10.1
 sympy==1.11.1
 torch==2.0.0+cu117
 torchaudio==2.0.1+cu117

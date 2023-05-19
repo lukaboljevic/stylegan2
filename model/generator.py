@@ -8,11 +8,10 @@ from general_utils.proxy import proxy
 
 
 class Generator(nn.Module):
-    """
-    This module corresponds to the synthesis network from the paper(s).
-    """
-
     def __init__(self, dim_latent=512):
+        """
+        This module essentially corresponds to the synthesis network from the paper(s).
+        """
         super().__init__()
 
         # Learnable constant input

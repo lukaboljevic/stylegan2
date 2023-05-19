@@ -1,3 +1,4 @@
+import os
 import torchvision as tv
 from torch.utils.data import DataLoader, Subset
 
@@ -39,6 +40,10 @@ def setup_data_loaders(root, batch_size, image_size=64, train_subset_size=-1, re
         tv.transforms.ToTensor(),
         tv.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
+
+    # Extract the ZIP with CelebA images if not already
+    if not os.path.exists(os.path.join(root, "celeba", "img_align_celeba")):
+        tv.datasets.CelebA(root=root, split="all", download=True)
 
     # PyTorch automatically looks for a "celeba" folder in the provided `root` parameter
     train_data = tv.datasets.CelebA(root=root, split="train", transform=transform)

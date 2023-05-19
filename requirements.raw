@@ -5,3 +5,4 @@
 numpy
 torchinfo
 tqdm
+pytorch-fid  # https://github.com/mseitzer/pytorch-fid

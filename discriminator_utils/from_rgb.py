@@ -5,12 +5,11 @@ from general_utils.proxy import proxy
 
 
 class FromRGB(nn.Module):
-    """
-    The FromRGB layer in the discriminator is much simpler than the ToRGB layer in the
-    generator - it is just a Conv2d layer using scaled weights (equalized learning rate).
-    """
-
     def __init__(self, out_channels, in_channels=3, kernel_size=1):
+        """
+        The FromRGB layer in the discriminator is much simpler than the ToRGB layer in the
+        generator - it is just a Conv2d layer using scaled weights (equalized learning rate).
+        """
         super().__init__()
 
         self.conv = EqualizedConv2d(in_channels, out_channels, kernel_size)

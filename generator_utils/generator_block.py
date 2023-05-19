@@ -9,12 +9,11 @@ from general_utils.proxy import proxy
 
 
 class GeneratorBlock(nn.Module):
-    """
-    One generator block consists of the two convolution layers with weight modulation and
-    demodulation, and the ToRGB layer
-    """
-
     def __init__(self, dim_latent, in_channels, out_channels):
+        """
+        One generator block consists of the two convolution layers with weight modulation and
+        demodulation, and the ToRGB layer
+        """
         super().__init__()
 
         self.conv_block1 = GeneratorConvBlock(dim_latent, in_channels, out_channels)
@@ -46,12 +45,11 @@ class GeneratorBlock(nn.Module):
 
 
 class GeneratorConvBlock(nn.Module):
-    """
-    One of the convolution blocks that performs group convolution using modulation and
-    demodulation of rescaled weights (equalized learning rate trick).
-    """
-
     def __init__(self, dim_latent, in_channels, out_channels, kernel_size=3, eps=1e-8):
+        """
+        One of the convolution blocks that performs group convolution using modulation and
+        demodulation of rescaled weights (equalized learning rate trick).
+        """
         super().__init__()
 
         # The affine transformation layer that uses equalized learning rate
@@ -66,6 +64,8 @@ class GeneratorConvBlock(nn.Module):
         self.activation = nn.LeakyReLU(0.2, inplace=True)  # negative_slope = 0.2 is used ever since Progressive GAN
         self.eps = eps  # for numerical stability when demodulating
 
+        # Noise scaling parameter
+        # This (as far as I'm aware) corresponds to the green "B" operation from the architectures
         self.noise_scaling_parameter = nn.Parameter(torch.zeros([]))
 
     def forward(self, x, w, noise):

@@ -6,11 +6,10 @@ from .proxy import proxy
 
 
 class Upsample(nn.Module):
-    """
-    Upsampling to 2x size, then smooting using FIR filter
-    """
-
     def __init__(self):
+        """
+        Upsampling to 2x size, then smooting using FIR filter
+        """
         super().__init__()
 
         self.upsample = nn.Upsample(scale_factor=2.0, mode="bilinear")
@@ -24,11 +23,10 @@ class Upsample(nn.Module):
 
 
 class Downsample(nn.Module):
-    """
-    Smooting using FIR filter, then downsampling to 0.5x size
-    """
-
     def __init__(self):
+        """
+        Smooting using FIR filter, then downsampling to 0.5x size
+        """
         super().__init__()
 
         self.smooth = Smooth()
@@ -42,11 +40,10 @@ class Downsample(nn.Module):
 
 
 class Smooth(nn.Module):
-    """
-    FIR filter smoothing using 2D FIR filter
-    """
-
     def __init__(self):
+        """
+        FIR filter smoothing using 2D FIR filter
+        """
         super().__init__()
         kernel = [[1, 2, 1], [2, 4, 2], [1, 2, 1]]
 
