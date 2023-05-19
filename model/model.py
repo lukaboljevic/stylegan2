@@ -185,7 +185,12 @@ class StyleGan2():
 
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, f"stylegan2-{current_num_steps}steps-{truncation_psi}trunc.png")
+
+        save_name = f"stylegan2-{current_num_steps}steps-{truncation_psi}trunc"
+        if seed is not None:
+            save_name += f"-{seed}seed"
+        save_name += ".png"
+        save_path = os.path.join(save_dir, )
 
         with torch.no_grad():
             images, _ = self._generator_output(num_images, truncation_psi=truncation_psi, seed=seed)
@@ -422,7 +427,7 @@ class StyleGan2():
         Load the model from `path_to_model`. The path must contain the <model_name>.pth file itself.
         """
         if not os.path.exists(path_to_model):
-            print(f"Model doesn't exist on path {path_to_model}.")
+            LOGGER.error(f"Model doesn't exist on path {path_to_model}")
             return
 
         LOGGER.info(f"Loading model from {path_to_model}")
