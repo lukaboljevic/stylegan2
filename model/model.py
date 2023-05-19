@@ -15,7 +15,7 @@ from general_utils.losses import (
     GradientPenalty,
 )
 
-from .dataset import setup_data_loaders
+from .dataset import setup_data_loaders, cycle_data_loader
 from .mapping_network import MappingNetwork
 from .generator import Generator
 from .discriminator import Discriminator
@@ -27,10 +27,11 @@ LOGGER = setup_logger(__name__)
 class StyleGan2():
     def __init__(self,
         root,
-        num_epochs=1,
+        num_training_steps=20,
         batch_size=4,
+        gradient_accumulate_steps=1,
         num_training_images=-1,
-        save_every_num_epoch=-1,
+        checkpoint_interval=1000,
         use_loss_regularization=False,
         generate_progress_images=True
     ):
@@ -44,22 +45,25 @@ class StyleGan2():
             model is instantiated in `test.py`, located inside the root folder of this repo, 
             then `root` should be set to `./`. If this model is instantiated in `training/test.py`,
             `root` should be `../`, and so on.
-        num_epochs : number of epochs to train the model. Default value is 1, but should be changed.
+        num_training_steps : number of steps to train the model. Default value is 20, but should be changed.
         batch_size : batch size to use for training. Default value is 4, but should be changed.
+        gradient_accumulate_steps : how many steps to accumulate gradients for before actually updating.
+            Default value is 1.
         num_training_images : number (subset) of CelebA images to use for training, or -1 to use
             all 160000+ images. Default value is -1.
-        save_every_num_epoch : number of epochs to wait before saving the next checkpoint, or -1
-            to not save any checkpoints. Default value is -1.
-        use_loss_regularization : whether to use GradientPenalty and PathLengthRegularization modules
-            for regularizing discriminator and generator losses respectively. Default value is False.
-        generate_progress_images : whether to generate a grid of images at the end of each epoch to
-            show current training progress. Default value is True.
+        checkpoint_interval : number of steps to wait before saving the next checkpoint and optionally
+            generating some output images. Default is 1000.
+        use_loss_regularization : whether to use R1 regularization and path length regularization for
+            regularizing discriminator and generator losses respectively. Default value is False.
+        generate_progress_images : whether to generate a grid of images every `checkpoint_interval` steps.
+            Default value is True.
         """
         self.root = root
-        self.num_epochs = num_epochs
+        self.num_training_steps = num_training_steps
         self.batch_size = batch_size
+        self.gradient_accumulate_steps = gradient_accumulate_steps
         self.num_training_images = num_training_images
-        self.save_every_num_epoch = save_every_num_epoch
+        self.checkpoint_interval = checkpoint_interval
         self.use_regularization = use_loss_regularization
         self.generate_progress_images = generate_progress_images
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -74,6 +78,7 @@ class StyleGan2():
 
         # Dataset
         self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
+        self.train_loader = cycle_data_loader(self.train_loader)
 
         # StyleGAN2
         self.mapping_network = MappingNetwork().to(self.device)
@@ -115,116 +120,8 @@ class StyleGan2():
         LOGGER.info("Model set up")
 
 
-    def _discriminator_step(self, inputs, batch_num):
-        """
-        Do one step of training the discriminator.
-        """
-        self.discriminator_optim.zero_grad()
-
-        # Generate images
-        generated_images, _ = self._generator_output()
-
-        # Discriminator classification for generated images
-        fake_output = self.discriminator(generated_images.detach())
-
-        # Get real images from the data loader
-        real_images = inputs.to(self.device)
-        if self.use_regularization and batch_num % self.gradient_penalty_interval == 0:
-            real_images.requires_grad_()
-
-        # Discriminator classification for real images
-        real_output = self.discriminator(real_images)
-
-        # Get discriminator loss
-        real_loss, fake_loss = self.discriminator_loss_fn(real_output, fake_output)
-        discriminator_loss = real_loss + fake_loss
-
-        # Add gradient penalty once very self.gradient_penalty_interval minibatches
-        if self.use_regularization and batch_num % self.gradient_penalty_interval == 0:
-            grad_penalty = self.gradient_penalty(real_images, real_output)
-            discriminator_loss = discriminator_loss + 0.5 * self.gamma * grad_penalty
-
-        # Calculate gradients
-        discriminator_loss.backward()
-
-        # Clip gradients for stabilization
-        torch.nn.utils.clip_grad_norm_(self.discriminator.parameters(), max_norm=1.0)
-
-        # Take optimizer step
-        self.discriminator_optim.step()
-
-        return discriminator_loss
-    
-
-    def _generator_step(self, batch_num):
-        """
-        Do one step of training the generator (and mapping network).
-        """
-        self.generator_optim.zero_grad()
-        self.mapping_network_optim.zero_grad()
-
-        # Generate images
-        generated_images, w = self._generator_output()
-
-        # Discriminator classification for generated images
-        fake_output = self.discriminator(generated_images)
-
-        # Get generator loss
-        generator_loss = self.generator_loss_fn(fake_output)
-
-        # Calculate path length penalty once very self.path_length_interval minibatches
-        if self.use_regularization and batch_num % self.path_length_interval == 0:
-            path_length_penalty = self.path_length_reg(w, generated_images)
-            generator_loss = generator_loss + path_length_penalty
-
-        # Calculate gradients
-        generator_loss.backward()
-
-        # Clip gradients for stabilization
-        torch.nn.utils.clip_grad_norm_(self.generator.parameters(), max_norm=1.0)
-        torch.nn.utils.clip_grad_norm_(self.mapping_network.parameters(), max_norm=1.0)
-
-        # Take optimizer step
-        self.generator_optim.step()
-        self.mapping_network_optim.step()
-
-        return generator_loss
-
-
-    def _do_epoch(self, progress_bar):
-        """
-        Do one epoch.
-        """
-        avg_generator_loss = 0.0
-        avg_discriminator_loss = 0.0
-
-        for batch_num, data in enumerate(self.train_loader, start=1):
-            inputs, _ = data  # we don't care about the targets
-
-            # Train the discriminator first
-            discriminator_loss = self._discriminator_step(inputs, batch_num)
-
-            # Train the generator (and mapping network) next
-            generator_loss = self._generator_step(batch_num)
-
-            # Update progress bar 'n' stuff
-            avg_generator_loss += generator_loss.item()
-            avg_discriminator_loss += discriminator_loss.item()
-            progress_bar.set_postfix(**{
-                "D_loss": discriminator_loss.item(),
-                "G_loss": generator_loss.item()
-            })
-            progress_bar.update(self.batch_size)
-        
-        # Calculate average losses
-        avg_generator_loss /= len(self.train_loader)*1.0
-        avg_discriminator_loss /= len(self.train_loader)*1.0
-
-        return avg_generator_loss, avg_discriminator_loss
-
-
     def _save_checkpoint(self,
-        current_num_epochs,
+        current_num_steps,
         avg_generator_loss,
         avg_discriminator_loss,
         base_path=os.getcwd(),
@@ -244,7 +141,7 @@ class StyleGan2():
 
         save_dict = {
             # Add current progress
-            "current_num_epochs": current_num_epochs,
+            "current_num_steps": current_num_steps,
             "mapping_network": self.mapping_network.state_dict(),
             "generator": self.generator.state_dict(),
             "discriminator": self.discriminator.state_dict(),
@@ -256,20 +153,20 @@ class StyleGan2():
             "avg_discriminator_loss": avg_discriminator_loss,
 
             # Add non-default hyperparameters
-            "total_num_epochs": self.num_epochs,
+            "total_num_steps": self.num_training_steps,
             "batch_size": self.batch_size,
             "num_training_images": self.num_training_images,
-            "save_every_num_epoch": self.save_every_num_epoch,
+            "checkpoint_interval": self.checkpoint_interval
         }
 
-        save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs.pth")
-        LOGGER.info(f"Saving model after {current_num_epochs} epochs to {save_path}")
+        save_path = os.path.join(save_dir, f"stylegan2-{current_num_steps}steps.pth")
+        LOGGER.info(f"Saving model after {current_num_steps} steps")
         torch.save(save_dict, save_path)
-        LOGGER.info("Model saved")
+        LOGGER.info(f"Model saved to {save_path}")
 
 
     def _generate_images(self,
-        current_num_epochs,
+        current_num_steps,
         num_images=16,
         num_rows=4,
         base_path=os.getcwd(),
@@ -288,7 +185,7 @@ class StyleGan2():
 
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-        save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs-{truncation_psi}trunc.png")
+        save_path = os.path.join(save_dir, f"stylegan2-{current_num_steps}steps-{truncation_psi}trunc.png")
 
         with torch.no_grad():
             images, _ = self._generator_output(num_images, truncation_psi=truncation_psi, seed=seed)
@@ -330,12 +227,189 @@ class StyleGan2():
         return generated_images, w
 
 
+    def _discriminator_step(self, inputs, step_idx):
+        """
+        Do one step of training the discriminator.
+        """
+        self.discriminator_optim.zero_grad()
+        total_discriminator_loss = torch.tensor(0.0).to(self.device)
+
+        # Accumulate gradient for certain number of steps
+        for _ in range(self.gradient_accumulate_steps):
+            # Generate images
+            generated_images, _ = self._generator_output()
+
+            # Discriminator classification for generated images
+            fake_output = self.discriminator(generated_images.detach())
+
+            # Real images
+            real_images = inputs.to(self.device)
+            if self.use_regularization and step_idx % self.gradient_penalty_interval == 0:
+                real_images.requires_grad_()
+
+            # Discriminator classification for real images
+            real_output = self.discriminator(real_images)
+
+            # Get discriminator loss
+            real_loss, fake_loss = self.discriminator_loss_fn(real_output, fake_output)
+            discriminator_loss = real_loss + fake_loss
+
+            # Add gradient penalty once very self.gradient_penalty_interval steps
+            if self.use_regularization and step_idx % self.gradient_penalty_interval == 0:
+                grad_penalty = self.gradient_penalty(real_images, real_output)
+                discriminator_loss = discriminator_loss + 0.5 * self.gamma * grad_penalty
+
+            # Normalize/scale
+            total_discriminator_loss += discriminator_loss.detach().item() / self.gradient_accumulate_steps
+            discriminator_loss = discriminator_loss / self.gradient_accumulate_steps
+
+            # Calculate gradients
+            discriminator_loss.backward()
+
+        # Clip gradients for stabilization
+        torch.nn.utils.clip_grad_norm_(self.discriminator.parameters(), max_norm=1.0)
+
+        # Take optimizer step
+        self.discriminator_optim.step()
+
+        return total_discriminator_loss
+    
+
+    def _generator_step(self, step_idx):
+        """
+        Do one step of training the generator (and mapping network).
+        """
+        self.generator_optim.zero_grad()
+        self.mapping_network_optim.zero_grad()
+        total_generator_loss = torch.tensor(0.0).to(self.device)
+
+        # Accumulate gradient for certain number of steps
+        for _ in range(self.gradient_accumulate_steps):
+            # Generate images
+            generated_images, w = self._generator_output()
+
+            # Discriminator classification for generated images
+            fake_output = self.discriminator(generated_images)
+
+            # Get generator loss
+            generator_loss = self.generator_loss_fn(fake_output)
+
+            # Calculate path length penalty once very self.path_length_interval steps
+            if self.use_regularization and step_idx % self.path_length_interval == 0:
+                path_length_penalty = self.path_length_reg(w, generated_images)
+                generator_loss = generator_loss + path_length_penalty
+
+            # Normalize/scale
+            total_generator_loss += generator_loss.detach().item() / self.gradient_accumulate_steps
+            generator_loss = generator_loss / self.gradient_accumulate_steps
+
+            # Calculate gradients
+            generator_loss.backward()
+
+        # Clip gradients for stabilization
+        torch.nn.utils.clip_grad_norm_(self.generator.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.mapping_network.parameters(), max_norm=1.0)
+
+        # Take optimizer step
+        self.generator_optim.step()
+        self.mapping_network_optim.step()
+
+        return total_generator_loss
+
+
+    def _do_step(self, step_idx):
+        """
+        Do one step.
+        """
+        # We don't care about the targets
+        batch_num, (inputs, _) = next(self.train_loader)
+
+        # Train the discriminator first for a step
+        discriminator_loss = self._discriminator_step(inputs, step_idx)
+
+        # Train the generator (and mapping network) next
+        generator_loss = self._generator_step(step_idx)
+
+        # Return just the values of losses
+        return generator_loss.item(), discriminator_loss.item()
+
+
+    def train_model(self):
+        # Don't think setting .train() makes that much of a difference but it's good practice
+        self.mapping_network.train()
+        self.generator.train()
+        self.discriminator.train()
+        LOGGER.info("Starting training")
+
+        avg_gen_loss, avg_disc_loss = 0.0, 0.0
+
+        with tqdm(total=self.num_training_steps, ncols=100) as pbar:
+            for step in range(self.num_training_steps):
+                # Do one step
+                gen_loss, disc_loss = self._do_step(step)
+                avg_gen_loss += gen_loss
+                avg_disc_loss =+ disc_loss
+
+                pbar.set_postfix(**{
+                    "G_loss": gen_loss,
+                    "D_loss": disc_loss,
+                })
+                pbar.update()
+
+                if (step + 1) % self.checkpoint_interval != 0:
+                    continue
+                
+                # Every checkpoint_interval steps, save checkpoint and optionally generate output images
+                print()
+                avg_gen_loss /= self.checkpoint_interval
+                avg_disc_loss /= self.checkpoint_interval
+                LOGGER.info(f"Average GEN loss after {step+1} steps: {avg_gen_loss}")
+                LOGGER.info(f"Average DISC loss after {step+1} steps: {avg_disc_loss}")
+
+                # Save current average losses for when we invoke .save_model()
+                self.final_avg_gen_loss = avg_gen_loss
+                self.final_avg_disc_loss = avg_disc_loss
+
+                # Save checkpoint and reset average losses
+                self._save_checkpoint(step+1, avg_gen_loss, avg_disc_loss)
+                avg_gen_loss, avg_disc_loss = 0.0, 0.0
+
+                if self.generate_progress_images:
+                    LOGGER.info(f"Generating progress images at step {step+1}")
+                    self._generate_images(step+1, truncation_psi=0.5)
+                    self._generate_images(step+1, truncation_psi=1)
+                print()
+
+    
+    def generate_output(self,
+        num_images,
+        num_rows,
+        base_path="./",
+        truncation_psi=1,
+        seed=None
+    ):
+        """
+        Generate `num_images` images in a grid with `num_rows` rows using the fully
+        trained generator. Images are saved in `base_path`.
+        """
+        LOGGER.info(f"Generating images")
+        self._generate_images(
+            self.num_training_steps,
+            num_images=num_images,
+            num_rows=num_rows,
+            base_path=base_path,
+            checkpoint=False,
+            truncation_psi=truncation_psi,
+            seed=seed
+        )
+
+
     def save_model(self, base_path="./"):
         """
         Save the final trained model to `base_path`.
         """
         self._save_checkpoint(
-            self.num_epochs,
+            self.num_training_steps,
             self.final_avg_gen_loss,
             self.final_avg_disc_loss,
             base_path=base_path,
@@ -356,10 +430,10 @@ class StyleGan2():
         checkpoint = torch.load(path_to_model, map_location=self.device)
 
         # Non-default hyperparameters
-        self.num_epochs = checkpoint["total_num_epochs"]
+        self.num_training_steps = checkpoint["total_num_steps"]
         self.batch_size = checkpoint["batch_size"]
         self.num_training_images = checkpoint["num_training_images"]
-        self.save_every_num_epoch = checkpoint["save_every_num_epoch"]
+        self.checkpoint_interval = checkpoint["checkpoint_interval"]
         self.use_regularization = checkpoint["path_length_reg"] is not None
         self.generate_progress_images = True
 
@@ -383,68 +457,6 @@ class StyleGan2():
 
         # Reload the data loader
         self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
+        self.train_loader = cycle_data_loader(self.train_loader)
             
         LOGGER.info("Model loaded")
-
-
-    def train_model(self):
-        # Don't think it makes that much of a difference but it's good practice
-        self.mapping_network.train()
-        self.generator.train()
-        self.discriminator.train()
-        save_counter = 0
-        LOGGER.info("Starting training")
-
-        for epoch in range(self.num_epochs):
-            print()
-            with tqdm(
-                total=len(self.train_loader.dataset),
-                desc=f"Epoch: {epoch+1}/{self.num_epochs}",
-                unit="images",
-                ncols=100
-            ) as progress_bar:
-                avg_gen_loss, avg_disc_loss = self._do_epoch(progress_bar)
-                print()
-                LOGGER.info(f"Average GEN loss: {avg_gen_loss}")
-                LOGGER.info(f"Average DISC loss: {avg_disc_loss}")
-
-                if self.generate_progress_images:
-                    LOGGER.info(f"Generating progress images after {epoch+1} epochs")
-                    self._generate_images(epoch+1, truncation_psi=0.5)
-                    self._generate_images(epoch+1, truncation_psi=1)
-
-                save_counter += 1
-                if self.save_every_num_epoch == -1:
-                    # Don't save any checkpoints
-                    continue
-
-                if save_counter == self.save_every_num_epoch:
-                    # Save a checkpoint every save_every_num_epoch epochs
-                    save_counter = 0
-                    self._save_checkpoint(epoch+1, avg_gen_loss, avg_disc_loss)
-
-        # Store the final loss values so we can save the entire model easily
-        self.final_avg_gen_loss = avg_gen_loss
-        self.final_avg_disc_loss = avg_disc_loss
-
-    
-    def generate_output(self,
-        num_images,
-        num_rows,
-        base_path="./",
-        truncation_psi=1,
-        seed=None
-    ):
-        """
-        Generate `num_images` images in a grid with `num_rows` rows using the fully
-        trained generator. Images are saved in `base_path`.
-        """
-        self._generate_images(
-            self.num_epochs,
-            num_images=num_images,
-            num_rows=num_rows,
-            base_path=base_path,
-            checkpoint=False,
-            truncation_psi=truncation_psi,
-            seed=seed
-        )

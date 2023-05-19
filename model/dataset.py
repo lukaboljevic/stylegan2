@@ -71,3 +71,9 @@ def setup_data_loaders(root, batch_size, image_size=64, train_subset_size=-1, re
         )
 
     return train_loader, test_loader
+
+
+def cycle_data_loader(data_loader):
+    while True:
+        for idx, batch in enumerate(data_loader):
+            yield idx, batch
