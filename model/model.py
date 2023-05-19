@@ -27,8 +27,8 @@ LOGGER = setup_logger(__name__)
 class StyleGan2():
     def __init__(self,
         root,
-        num_epochs,
-        batch_size,
+        num_epochs=1,
+        batch_size=4,
         num_training_images=-1,
         save_every_num_epoch=-1,
         use_loss_regularization=False,
@@ -44,8 +44,8 @@ class StyleGan2():
             model is instantiated in `test.py`, located inside the root folder of this repo, 
             then `root` should be set to `./`. If this model is instantiated in `training/test.py`,
             `root` should be `../`, and so on.
-        num_epochs : number of epochs to train the model
-        batch_size : batch size to use for training
+        num_epochs : number of epochs to train the model. Default value is 1, but should be changed.
+        batch_size : batch size to use for training. Default value is 4, but should be changed.
         num_training_images : number (subset) of CelebA images to use for training, or -1 to use
             all 160000+ images. Default value is -1.
         save_every_num_epoch : number of epochs to wait before saving the next checkpoint, or -1
@@ -55,6 +55,7 @@ class StyleGan2():
         generate_progress_images : whether to generate a grid of images at the end of each epoch to
             show current training progress. Default value is True.
         """
+        self.root = root
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.num_training_images = num_training_images
@@ -72,7 +73,7 @@ class StyleGan2():
 
 
         # Dataset
-        self.train_loader, _ = setup_data_loaders(root, self.batch_size, train_subset_size=self.num_training_images)
+        self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
 
         # StyleGAN2
         self.mapping_network = MappingNetwork().to(self.device)
@@ -274,6 +275,7 @@ class StyleGan2():
         base_path=os.getcwd(),
         checkpoint=True,
         truncation_psi=1,
+        seed=None
     ):
         """
         Generate images using the current state of generator, using `base_path` as the root directory.
@@ -289,15 +291,23 @@ class StyleGan2():
         save_path = os.path.join(save_dir, f"stylegan2-{current_num_epochs}epochs-{truncation_psi}trunc.png")
 
         with torch.no_grad():
-            images, _ = self._generator_output(num_images, truncation_psi=truncation_psi)
-            images = torch.clamp(images, 0, 1)
-            image_grid = make_grid(images, nrow=num_rows, padding=0).permute(1, 2, 0).cpu().numpy()
-            image_grid = Image.fromarray(np.uint8(image_grid*255)).convert("RGB")
-            image_grid.save(save_path)
+            images, _ = self._generator_output(num_images, truncation_psi=truncation_psi, seed=seed)
+
+            # Old way
+            # images = torch.clamp(images, 0, 1)
+            # image_grid = make_grid(images, nrow=num_rows, padding=0).permute(1, 2, 0).cpu().numpy()
+            # image_grid = Image.fromarray(np.uint8(image_grid*255)).convert("RGB")
+            # image_grid.save(save_path)
+
+            # Idea taken from NVIDIA: https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/generate.py#L116
+            images = (images * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+            image_grid = make_grid(images, nrow=num_rows).permute(1, 2, 0).cpu().numpy()
+            Image.fromarray(image_grid, mode="RGB").save(save_path)
+
         LOGGER.info(f"Generated images saved to {save_path}")
 
 
-    def _generator_output(self, batch_size=-1, truncation_psi=1):
+    def _generator_output(self, batch_size=-1, truncation_psi=1, seed=None):
         """
         Use the generator to generate `batch_size` images. Default value for `batch_size`
         is -1, meaning that self.batch_size is used in its place.
@@ -309,7 +319,10 @@ class StyleGan2():
             batch_size = self.batch_size
 
         # Generate images
-        z = torch.randn(batch_size, self.dim_latent).to(self.device)
+        if seed is None:
+            z = torch.randn(batch_size, self.dim_latent).to(self.device)
+        else:
+            z = torch.from_numpy(np.random.RandomState(seed).randn(batch_size, self.dim_latent)).type(torch.float32).to(self.device)
         w = self.mapping_network(z, truncation_psi=truncation_psi)
         noise = generate_noise(batch_size, self.device)
         generated_images = self.generator(w, noise)
@@ -328,6 +341,50 @@ class StyleGan2():
             base_path=base_path,
             checkpoint=False
         )
+
+
+    def load_model(self, path_to_model):
+        """
+        Load the model from `path_to_model`. The path must contain the <model_name>.pth file itself.
+        """
+        if not os.path.exists(path_to_model):
+            print(f"Model doesn't exist on path {path_to_model}.")
+            return
+
+        LOGGER.info(f"Loading model from {path_to_model}")
+
+        checkpoint = torch.load(path_to_model, map_location=self.device)
+
+        # Non-default hyperparameters
+        self.num_epochs = checkpoint["total_num_epochs"]
+        self.batch_size = checkpoint["batch_size"]
+        self.num_training_images = checkpoint["num_training_images"]
+        self.save_every_num_epoch = checkpoint["save_every_num_epoch"]
+        self.use_regularization = checkpoint["path_length_reg"] is not None
+        self.generate_progress_images = True
+
+        # Model
+        self.mapping_network.load_state_dict(checkpoint["mapping_network"])
+        self.generator.load_state_dict(checkpoint["generator"])
+        self.discriminator.load_state_dict(checkpoint["discriminator"])
+
+        # Regularization was optional
+        if self.use_regularization:
+            self.path_length_reg = PathLengthRegularization().to(self.device)
+            self.gradient_penalty = GradientPenalty().to(self.device)
+            self.gradient_penalty_interval = 16
+            self.path_length_interval = 16
+            self.path_length_reg.load_state_dict(checkpoint["path_length_reg"])
+
+        # Optimizers
+        self.mapping_network_optim.load_state_dict(checkpoint["mapping_network_optim"])
+        self.generator_optim.load_state_dict(checkpoint["generator_optim"])
+        self.discriminator_optim.load_state_dict(checkpoint["discriminator_optim"])
+
+        # Reload the data loader
+        self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
+            
+        LOGGER.info("Model loaded")
 
 
     def train_model(self):
@@ -371,7 +428,13 @@ class StyleGan2():
         self.final_avg_disc_loss = avg_disc_loss
 
     
-    def generate_output(self, num_images, num_rows, base_path="./", truncation_psi=1):
+    def generate_output(self,
+        num_images,
+        num_rows,
+        base_path="./",
+        truncation_psi=1,
+        seed=None
+    ):
         """
         Generate `num_images` images in a grid with `num_rows` rows using the fully
         trained generator. Images are saved in `base_path`.
@@ -382,5 +445,6 @@ class StyleGan2():
             num_rows=num_rows,
             base_path=base_path,
             checkpoint=False,
-            truncation_psi=truncation_psi
+            truncation_psi=truncation_psi,
+            seed=seed
         )
