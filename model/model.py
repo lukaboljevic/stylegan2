@@ -190,7 +190,7 @@ class StyleGan2():
         if seed is not None:
             save_name += f"-{seed}seed"
         save_name += ".png"
-        save_path = os.path.join(save_dir, )
+        save_path = os.path.join(save_dir, save_name)
 
         with torch.no_grad():
             images, _ = self._generator_output(num_images, truncation_psi=truncation_psi, seed=seed)
