@@ -14,7 +14,7 @@ class MappingNetwork(nn.Module):
         ----------
         `dim_latent` : Dimension of latent variables `z` and `w`, i.e. the input and output
             of the mapping network respectively
-        `w_avg_beta` : Related to the truncation trick StyleGAN(2) uses: 
+        `w_avg_beta` : Related to the truncation trick StyleGAN(2) uses:
             - https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L185
             - https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L212
         """

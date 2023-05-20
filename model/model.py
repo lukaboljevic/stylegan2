@@ -25,7 +25,7 @@ from .discriminator import Discriminator
 LOGGER = setup_logger(__name__)
 
 
-class StyleGan2():
+class StyleGan2:
     def __init__(self,
         root,
         model_index=0,
@@ -40,14 +40,14 @@ class StyleGan2():
         gradient_accumulate_steps=1,
         use_loss_regularization=False,
         checkpoint_interval=1000,
-        generate_progress_images=True
+        generate_progress_images=True,
     ):
         """
         Entire StyleGAN2 model put together.
 
         Parameters
         ----------
-        `root` : Path to the directory containing the `celeba` folder, either absolute or 
+        `root` : Path to the directory containing the `celeba` folder, either absolute or
             relative to the script this model is instantiated in.
         `model_index` : Integer that uniquely identifies the model, mainly used for saving checkpoints.
             Default value is 0, but should be changed.
@@ -107,7 +107,7 @@ class StyleGan2():
         if self.use_regularization:
             self.path_length_reg = PathLengthRegularization().to(self.device)
             self.gradient_penalty = GradientPenalty().to(self.device)
-            # Lazy regularization parameters (StyleGAN2): 
+            # Lazy regularization parameters (StyleGAN2):
             # "... The regularization terms can be computed less frequently than the main loss functions ..."
             # "... R1 regularization is performed only once every 16 minibatches ..."
             self.gradient_penalty_interval = 16
@@ -179,7 +179,6 @@ class StyleGan2():
             "discriminator_optim": self.discriminator_optim.state_dict(),
             "avg_generator_loss": avg_generator_loss,
             "avg_discriminator_loss": avg_discriminator_loss,
-
             # Add hyperparameters and stuff
             "root": self.root,
             "model_index": self.model_index,
@@ -193,7 +192,7 @@ class StyleGan2():
             "gamma": self.gamma,
             "gradient_accumulate_steps": self.gradient_accumulate_steps,
             "use_regularization": self.use_regularization,
-            "checkpoint_interval": self.checkpoint_interval
+            "checkpoint_interval": self.checkpoint_interval,
         }
 
         save_path = os.path.join(save_dir, f"stylegan2-{self.model_index}idx-{current_num_steps}steps.pth")
@@ -209,7 +208,7 @@ class StyleGan2():
         base_path=os.getcwd(),
         checkpoint=True,
         truncation_psi=1,
-        seed=None
+        seed=None,
     ):
         """
         Generate images using the current state of generator, using `base_path` as the root directory.
@@ -251,7 +250,7 @@ class StyleGan2():
         Use the generator to generate `batch_size` images. Default value for `batch_size`
         is -1, meaning that self.batch_size is used in its place.
 
-        The function returns batch_size generated images and the intermediate latent 
+        The function returns batch_size generated images and the intermediate latent
         variable `w` that was one of the inputs to the generator.
         """
         if batch_size == -1:
@@ -261,7 +260,11 @@ class StyleGan2():
         if seed is None:
             z = torch.randn(batch_size, self.dim_latent).to(self.device)
         else:
-            z = torch.from_numpy(np.random.RandomState(seed).randn(batch_size, self.dim_latent)).type(torch.float32).to(self.device)
+            z = (
+                torch.from_numpy(np.random.RandomState(seed).randn(batch_size, self.dim_latent))
+                .type(torch.float32)
+                .to(self.device)
+            )
         w = self.mapping_network(z, truncation_psi=truncation_psi)
         noise = generate_noise(batch_size, self.device)
         generated_images = self.generator(w, noise)
@@ -315,7 +318,7 @@ class StyleGan2():
         self.discriminator_optim.step()
 
         return total_discriminator_loss
-    
+
 
     def _generator_step(self, step_idx):
         """
@@ -396,17 +399,19 @@ class StyleGan2():
                 # Do one step
                 gen_loss, disc_loss = self._do_step(step)
                 avg_gen_loss += gen_loss
-                avg_disc_loss =+ disc_loss
+                avg_disc_loss += disc_loss
 
-                pbar.set_postfix(**{
-                    "G_loss": gen_loss,
-                    "D_loss": disc_loss,
-                })
+                pbar.set_postfix(
+                    **{
+                        "G_loss": gen_loss,
+                        "D_loss": disc_loss,
+                    }
+                )
                 pbar.update()
 
                 if (step + 1) % self.checkpoint_interval != 0:
                     continue
-                
+
                 # Every checkpoint_interval steps, save checkpoint and optionally generate output images
                 print()
                 avg_gen_loss /= self.checkpoint_interval
@@ -419,23 +424,17 @@ class StyleGan2():
                 self.final_avg_disc_loss = avg_disc_loss
 
                 # Save checkpoint and reset average losses
-                self._save_checkpoint(step+1, avg_gen_loss, avg_disc_loss)
+                self._save_checkpoint(step + 1, avg_gen_loss, avg_disc_loss)
                 avg_gen_loss, avg_disc_loss = 0.0, 0.0
 
                 if self.generate_progress_images:
                     LOGGER.info(f"Generating progress images at step {step+1}")
-                    self._generate_images(step+1, truncation_psi=0.5)
-                    self._generate_images(step+1, truncation_psi=1)
+                    self._generate_images(step + 1, truncation_psi=0.5)
+                    self._generate_images(step + 1, truncation_psi=1)
                 print()
 
-    
-    def generate_output(self,
-        num_images,
-        num_rows,
-        base_path="./",
-        truncation_psi=1,
-        seed=None
-    ):
+
+    def generate_output(self, num_images, num_rows, base_path="./", truncation_psi=1, seed=None):
         """
         Generate `num_images` images in a grid with `num_rows` rows using the fully
         trained generator. Images are saved in `base_path`.
@@ -448,7 +447,7 @@ class StyleGan2():
             base_path=base_path,
             checkpoint=False,
             truncation_psi=truncation_psi,
-            seed=seed
+            seed=seed,
         )
 
 
@@ -461,7 +460,7 @@ class StyleGan2():
             self.final_avg_gen_loss,
             self.final_avg_disc_loss,
             base_path=base_path,
-            checkpoint=False
+            checkpoint=False,
         )
 
 
@@ -472,7 +471,7 @@ class StyleGan2():
         if not os.path.exists(path_to_model):
             LOGGER.error(f"Model doesn't exist on path {path_to_model}")
             return
-        
+
         if not path_to_model.endswith((".pth", ".pt")):
             LOGGER.error(f"The path to model doesn't end with '.pt' or '.pth'.")
             return
@@ -517,7 +516,9 @@ class StyleGan2():
         self.discriminator_optim.load_state_dict(checkpoint["discriminator_optim"])
 
         # Reload the data loader
-        self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
+        self.train_loader, _ = setup_data_loaders(
+            self.root, self.batch_size, train_subset_size=self.num_training_images
+        )
         self.train_loader = cycle_data_loader(self.train_loader)
 
         # Put everything together to log when we start training
@@ -534,5 +535,5 @@ class StyleGan2():
             "Use loss regularization": self.use_regularization,
             "Save checkpoint every": self.checkpoint_interval,
         }
-            
+
         LOGGER.info("Model loaded")

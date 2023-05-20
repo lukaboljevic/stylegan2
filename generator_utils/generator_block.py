@@ -94,9 +94,7 @@ class GeneratorConvBlock(nn.Module):
 
         # Demodulate the modulated weights
         # Shape of sigma_inverse is [batch_size, out_channels, 1, 1, 1]
-        sigma_inverse = torch.rsqrt(
-            (modulated_weight ** 2).sum(dim=[2, 3, 4], keepdim=True) + self.eps
-        )
+        sigma_inverse = torch.rsqrt((modulated_weight**2).sum(dim=[2, 3, 4], keepdim=True) + self.eps)
 
         # Shape is [batch_size, out_channels, in_channels, kernel_size, kernel_size]
         demodulated_weight = modulated_weight * sigma_inverse
