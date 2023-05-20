@@ -1,3 +1,4 @@
+import json
 import os
 import numpy as np
 import torch
@@ -27,12 +28,18 @@ LOGGER = setup_logger(__name__)
 class StyleGan2():
     def __init__(self,
         root,
+        model_index=0,
+        gan_lr=0.001,
+        mapping_network_lr=0.0001,
+        num_training_images=-1,
         num_training_steps=20,
         batch_size=4,
+        dim_latent=512,
+        adam_betas=(0.0, 0.99),
+        gamma=10,
         gradient_accumulate_steps=1,
-        num_training_images=-1,
-        checkpoint_interval=1000,
         use_loss_regularization=False,
+        checkpoint_interval=1000,
         generate_progress_images=True
     ):
         """
@@ -45,36 +52,44 @@ class StyleGan2():
             model is instantiated in `test.py`, located inside the root folder of this repo, 
             then `root` should be set to `./`. If this model is instantiated in `training/test.py`,
             `root` should be `../`, and so on.
-        num_training_steps : number of steps to train the model. Default value is 20, but should be changed.
-        batch_size : batch size to use for training. Default value is 4, but should be changed.
-        gradient_accumulate_steps : how many steps to accumulate gradients for before actually updating.
-            Default value is 1.
+        model_index : integer that uniquely identifies the model, mainly used for saving checkpoints.
+        gan_lr : generator and discriminator learning rate
+        mapping_network_lr : mapping network learning rate
         num_training_images : number (subset) of CelebA images to use for training, or -1 to use
             all 160000+ images. Default value is -1.
-        checkpoint_interval : number of steps to wait before saving the next checkpoint and optionally
-            generating some output images. Default is 1000.
+        num_training_steps : number of steps to train the model. Default value is 20, but should be changed.
+        batch_size : batch size to use for training. Default value is 4, but should be changed.
+        dim_latent : dimensionality of latent variables `z` and `w`, Default value is 512.
+        adam_betas : beta_1 and beta_2 for Adam optimizer. Default value is (0.0, 0.99)
+        gamma : gradient penalty coefficient gamma. Default value is 10.
+        gradient_accumulate_steps : how many steps to accumulate gradients for before actually updating.
+            Default value is 1.
         use_loss_regularization : whether to use R1 regularization and path length regularization for
             regularizing discriminator and generator losses respectively. Default value is False.
+        checkpoint_interval : number of steps to wait before saving the next checkpoint and optionally
+            generating some output images. Default is 1000.
         generate_progress_images : whether to generate a grid of images every `checkpoint_interval` steps.
             Default value is True.
         """
+        self.model_index = model_index
         self.root = root
-        self.num_training_steps = num_training_steps
-        self.batch_size = batch_size
-        self.gradient_accumulate_steps = gradient_accumulate_steps
-        self.num_training_images = num_training_images
-        self.checkpoint_interval = checkpoint_interval
-        self.use_regularization = use_loss_regularization
-        self.generate_progress_images = generate_progress_images
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Hyperparameters (taken from StyleGAN papers)
-        self.dim_latent = 512
-        self.adam_betas = (0.0, 0.99)
-        self.gan_lr = 0.001  # learning rate for generator and discriminator
-        self.mapping_network_lr = self.gan_lr * 0.01  # StyleGAN, Appendix C, 3rd paragraph
-        self.gamma = 10  # gradient penalty coefficient gamma
+        # Hyperparameters
+        self.gan_lr = gan_lr
+        self.mapping_network_lr = mapping_network_lr
+        self.num_training_images = num_training_images
+        self.num_training_steps = num_training_steps
+        self.batch_size = batch_size
+        self.dim_latent = dim_latent
+        self.adam_betas = adam_betas
+        self.gamma = gamma
+        self.gradient_accumulate_steps = gradient_accumulate_steps
+        self.use_regularization = use_loss_regularization
 
+        # For saving checkpoints and progress images
+        self.checkpoint_interval = checkpoint_interval
+        self.generate_progress_images = generate_progress_images
 
         # Dataset
         self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
@@ -117,6 +132,21 @@ class StyleGan2():
             betas=self.adam_betas
         )
 
+        # Put everything together to log when we start training
+        self.hyperparameters = {
+            "Num train steps": self.num_training_steps,
+            "Num train images": self.num_training_images,
+            "Gen and Disc LR": self.gan_lr,
+            "Mapping LR": self.mapping_network_lr,
+            "Batch size": self.batch_size,
+            "Latent dim": self.dim_latent,
+            "Adam betas": self.adam_betas,
+            "R1 reg. gamma": self.gamma,
+            "Gradient accumulate steps": self.gradient_accumulate_steps,
+            "Use loss regularization": self.use_regularization,
+            "Save checkpoint every": self.checkpoint_interval,
+        }
+
         LOGGER.info("Model set up")
 
 
@@ -152,14 +182,23 @@ class StyleGan2():
             "avg_generator_loss": avg_generator_loss,
             "avg_discriminator_loss": avg_discriminator_loss,
 
-            # Add non-default hyperparameters
-            "total_num_steps": self.num_training_steps,
-            "batch_size": self.batch_size,
+            # Add hyperparameters and stuff
+            "root": self.root,
+            "model_index": self.model_index,
+            "gan_lr": self.gan_lr,
+            "mapping_network_lr": self.mapping_network_lr,
             "num_training_images": self.num_training_images,
+            "num_training_steps": self.num_training_steps,
+            "batch_size": self.batch_size,
+            "dim_latent": self.dim_latent,
+            "adam_betas": self.adam_betas,
+            "gamma": self.gamma,
+            "gradient_accumulate_steps": self.gradient_accumulate_steps,
+            "use_regularization": self.use_regularization,
             "checkpoint_interval": self.checkpoint_interval
         }
 
-        save_path = os.path.join(save_dir, f"stylegan2-{current_num_steps}steps.pth")
+        save_path = os.path.join(save_dir, f"stylegan2-{self.model_index}idx-{current_num_steps}steps.pth")
         LOGGER.info(f"Saving model after {current_num_steps} steps")
         torch.save(save_dict, save_path)
         LOGGER.info(f"Model saved to {save_path}")
@@ -186,7 +225,7 @@ class StyleGan2():
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
-        save_name = f"stylegan2-{current_num_steps}steps-{truncation_psi}trunc"
+        save_name = f"stylegan2-{self.model_index}idx-{current_num_steps}steps-{truncation_psi}trunc"
         if seed is not None:
             save_name += f"-{seed}seed"
         save_name += ".png"
@@ -345,6 +384,9 @@ class StyleGan2():
         self.generator.train()
         self.discriminator.train()
         LOGGER.info("Starting training")
+        LOGGER.info(f"Model index: {self.model_index}")
+        LOGGER.info(f"Training on {self.device.upper()}")
+        LOGGER.info(f"Setup:\n{json.dumps(self.hyperparameters, indent=4)}")
 
         avg_gen_loss, avg_disc_loss = 0.0, 0.0
 
@@ -435,11 +477,20 @@ class StyleGan2():
         checkpoint = torch.load(path_to_model, map_location=self.device)
 
         # Non-default hyperparameters
-        self.num_training_steps = checkpoint["total_num_steps"]
-        self.batch_size = checkpoint["batch_size"]
+        self.root = checkpoint["root"]
+        self.model_index = checkpoint["model_index"]
+        self.gan_lr = checkpoint["gan_lr"]
+        self.mapping_network_lr = checkpoint["mapping_network_lr"]
         self.num_training_images = checkpoint["num_training_images"]
+        self.num_training_steps = checkpoint["num_training_steps"]
+        self.batch_size = checkpoint["batch_size"]
+        self.dim_latent = checkpoint["dim_latent"]
+        self.adam_betas = tuple(checkpoint["adam_betas"])
+        self.gamma = checkpoint["gamma"]
+        self.gradient_accumulate_steps = checkpoint["gradient_accumulate_steps"]
         self.checkpoint_interval = checkpoint["checkpoint_interval"]
-        self.use_regularization = checkpoint["path_length_reg"] is not None
+        self.use_regularization = checkpoint["use_regularization"]
+        self.checkpoint_interval = checkpoint["checkpoint_interval"]
         self.generate_progress_images = True
 
         # Model
@@ -463,5 +514,20 @@ class StyleGan2():
         # Reload the data loader
         self.train_loader, _ = setup_data_loaders(self.root, self.batch_size, train_subset_size=self.num_training_images)
         self.train_loader = cycle_data_loader(self.train_loader)
+
+        # Put everything together to log when we start training
+        self.hyperparameters = {
+            "Num train steps": self.num_training_steps,
+            "Num train images": self.num_training_images,
+            "Gen and Disc LR": self.gan_lr,
+            "Mapping LR": self.mapping_network_lr,
+            "Batch size": self.batch_size,
+            "Latent dim": self.dim_latent,
+            "Adam betas": self.adam_betas,
+            "R1 reg. gamma": self.gamma,
+            "Gradient accumulate steps": self.gradient_accumulate_steps,
+            "Use loss regularization": self.use_regularization,
+            "Save checkpoint every": self.checkpoint_interval,
+        }
             
         LOGGER.info("Model loaded")
