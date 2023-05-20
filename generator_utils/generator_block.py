@@ -24,16 +24,16 @@ class GeneratorBlock(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, in_channels, height, width]
-        w : intermediate latent variable coming from the mapping network of shape
+        `x` : Input tensor of shape [batch_size, in_channels, height, width]
+        `w` : Intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
-        noise : a tuple containing two random noise tensors, one for each convolution
+        `noise` : Tuple containing two random noise tensors, one for each convolution
             block. Each noise tensor is of shape [batch_size, 1, block_resolution, block_resolution]
             where block_resolution is the resolution (image size) of this block.
 
         Returns
         -------
-        out : tensor of shape [batch_size, out_channels, height, width]
+        `out` : Tensor of shape [batch_size, out_channels, height, width]
         """
         out = self.conv_block1(x, w, noise[0])
         out = self.conv_block2(out, w, noise[1])
@@ -72,15 +72,15 @@ class GeneratorConvBlock(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, in_channels, height, width]
-        w : intermediate latent variable coming from the mapping network of shape
+        `x` : Input tensor of shape [batch_size, in_channels, height, width]
+        `w` : Intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
-        noise : random noise tensor of shape [batch_size, 1, block_resolution, block_resolution]
+        `noise` : Random noise tensor of shape [batch_size, 1, block_resolution, block_resolution]
             where block_resolution is the resolution (image size) of this block.
 
         Returns
         -------
-        out : tensor of shape [batch_size, out_channels, height, width]
+        `out` : Tensor of shape [batch_size, out_channels, height, width]
         """
 
         batch_size, in_channels, height, width = x.shape

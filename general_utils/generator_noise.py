@@ -3,18 +3,17 @@ import torch
 
 def generate_noise(batch_size, device):
     """
-    Generate random noise input for the generator. The size of the generated
-    noise depends on the resolution (image size) used at a particular block.
-    For example, the resolution of the first block is 4x4, of the second is
-    8x8, and so on. The noise is standard normal, as per StyleGAN paper
-    (Figure 1).
+    Generate random noise input for each generator block. The size of the generated
+    noise depends on the resolution (image size) used at a particular block. For
+    example, the resolution of the first block is 4x4, of the second is 8x8, and so
+    on. The noise is standard normal, as per StyleGAN paper (Figure 1).
 
-    For each generator block except the first, we should generate two noise
-    tensors of the same shape, [batch_size, 1, resolution, resolution]. Since
-    the first generator block performs only one 3x3 convolution, we need to
-    supply it with only one noise tensor.
+    For each generator block except the first, we should generate two noise tensors
+    of the same shape, [batch_size, 1, resolution, resolution]. Since the first
+    generator block performs only one 3x3 convolution, we need to supply it with only
+    one noise tensor.
 
-    At the time being, we go only up to 64x64 size.
+    At the time being, we go only up to 64x64 size (resolution).
     """
     i = 0
     resolution = 4

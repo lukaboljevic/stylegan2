@@ -42,9 +42,9 @@ class Generator(nn.Module):
         """
         Parameters
         ----------
-        w : intermediate latent variable coming from the mapping network of shape
+        `w` : intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
-        noise : a list of tuples, one tuple for each generator block, with each tuple
+        `noise` : a list of tuples, one tuple for each generator block, with each tuple
             containing the random noise input for the given generator block. The first
             generator block receives only one noise tensor, while the rest receive two.
             Each random noise tensor is of shape [batch_size, 1, block_resolution, block_resolution],
@@ -54,7 +54,7 @@ class Generator(nn.Module):
 
         Returns
         -------
-        rgb_out : "RGB image" i.e. tensor of shape [batch_size, 3, image_height, image_width].
+        `rgb_out` : batch_size RGB images i.e. tensor of shape [batch_size, 3, image_height, image_width].
             For the time being, image_height = image_width = 64
         """
         # TODO for now I'm not going to do style mixing regularization (multiple ws)

@@ -46,11 +46,11 @@ class Discriminator(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, 3, 64, 64] i.e. batch_size RGB images (real or fake)
+        `x` : Input tensor of shape [batch_size, 3, 64, 64] i.e. batch_size RGB images (real or fake)
 
         Returns
         -------
-        cls : output of shape [batch_size, 1], indicating the class (real/fake) of all batch_size images
+        `cls` : Output of shape [batch_size, 1], indicating the class (real/fake) of all batch_size images
         """
         # Convert from RGB to feature vectors
         x = self.from_rgb(x)

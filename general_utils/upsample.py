@@ -48,7 +48,7 @@ class Smooth(nn.Module):
         kernel = [[1, 2, 1], [2, 4, 2], [1, 2, 1]]
 
         kernel = torch.tensor([[kernel]], dtype=torch.float)
-        kernel /= kernel.sum()  # divide by 1/16
+        kernel /= kernel.sum()  # multiply with 1/16
 
         self.kernel = nn.Parameter(kernel, requires_grad=False)
         self.pad = nn.ReplicationPad2d(1)
@@ -57,12 +57,12 @@ class Smooth(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, in_channels, height, width], where in_channels is the
+        `x` : Input tensor of shape [batch_size, in_channels, height, width], where in_channels is the
             number of input channels/features for the next convolution block (check Generator forward function)
 
         Returns
         -------
-        out : output tensor of shape [batch_size, in_channels, height, width]
+        `out` : Output tensor of shape [batch_size, in_channels, height, width]
         """
         bs, ic, h, w = x.shape
         x = x.view(-1, 1, h, w)

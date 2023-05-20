@@ -19,12 +19,12 @@ class FromRGB(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, 3, height, width] (i.e. batch_size RGB images). At the
+        `x` : Input tensor of shape [batch_size, 3, height, width] (i.e. batch_size RGB images). At the
             moment, height = width = 64.
 
         Returns
         -------
-        out : feature vectors of shape [batch_size, out_channels, height, width]. At the moment,
+        `out` : Feature vectors of shape [batch_size, out_channels, height, width]. At the moment,
             out_channels = 256 since height = width = 64.
         """
         x = self.conv(x)

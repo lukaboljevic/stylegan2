@@ -40,11 +40,11 @@ class DiscriminatorBlock(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, in_channels, height, width]
+        `x` : Input tensor of shape [batch_size, in_channels, height, width]
 
         Returns
         -------
-        out : output tensor of shape [batch_size, out_channels, height // 2, width // 2]
+        `out` : Output tensor of shape [batch_size, out_channels, height // 2, width // 2]
         """
         # Get the residual first
         residual = self.residual_conv(self.downsample(x))

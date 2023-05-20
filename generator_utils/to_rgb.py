@@ -36,13 +36,13 @@ class ToRGB(nn.Module):
         """
         Parameters
         ----------
-        x : input tensor of shape [batch_size, in_channels, height, width]
-        w : intermediate latent variable coming from the mapping network of shape
+        `x` : Input tensor of shape [batch_size, in_channels, height, width]
+        `w` : Intermediate latent variable coming from the mapping network of shape
             [batch_size, dim_latent]
 
         Returns
         -------
-        out : tensor of shape [batch_size, out_channels, height, width]
+        `out` : Tensor of shape [batch_size, out_channels, height, width]
         """
 
         batch_size, in_channels, height, width = x.shape

@@ -47,28 +47,26 @@ class StyleGan2():
 
         Parameters
         ----------
-        root : path to the directory containing the `celeba` folder, either absolute or 
-            relative to the script this model is instantiated in. So for example, if this 
-            model is instantiated in `test.py`, located inside the root folder of this repo, 
-            then `root` should be set to `./`. If this model is instantiated in `training/test.py`,
-            `root` should be `../`, and so on.
-        model_index : integer that uniquely identifies the model, mainly used for saving checkpoints.
-        gan_lr : generator and discriminator learning rate
-        mapping_network_lr : mapping network learning rate
-        num_training_images : number (subset) of CelebA images to use for training, or -1 to use
-            all 160000+ images. Default value is -1.
-        num_training_steps : number of steps to train the model. Default value is 20, but should be changed.
-        batch_size : batch size to use for training. Default value is 4, but should be changed.
-        dim_latent : dimensionality of latent variables `z` and `w`, Default value is 512.
-        adam_betas : beta_1 and beta_2 for Adam optimizer. Default value is (0.0, 0.99)
-        gamma : gradient penalty coefficient gamma. Default value is 10.
-        gradient_accumulate_steps : how many steps to accumulate gradients for before actually updating.
+        `root` : Path to the directory containing the `celeba` folder, either absolute or 
+            relative to the script this model is instantiated in.
+        `model_index` : Integer that uniquely identifies the model, mainly used for saving checkpoints.
+            Default value is 0, but should be changed.
+        `gan_lr` : Generator and discriminator learning rate. Default value is 0.001.
+        `mapping_network_lr` : Mapping network learning rate. Default value is 0.0001.
+        `num_training_images` : How many CelebA images to use for training, or -1 to use all 160000+ images.
+            Default value is -1.
+        `num_training_steps` : Number of steps to train the model. Default value is 20, but should be changed.
+        `batch_size` : batch Size to use for training. Default value is 4, but should be changed.
+        `dim_latent` : Dimensionality of latent variables `z` and `w`, Default value is 512.
+        `adam_betas` : Tuple containing beta_1 and beta_2 for Adam optimizer. Default value is (0.0, 0.99)
+        `gamma` : Gradient penalty coefficient gamma. Default value is 10.
+        `gradient_accumulate_steps` : How many steps to accumulate gradients for before actually updating.
             Default value is 1.
-        use_loss_regularization : whether to use R1 regularization and path length regularization for
+        `use_loss_regularization` : Whether to use R1 regularization and path length regularization for
             regularizing discriminator and generator losses respectively. Default value is False.
-        checkpoint_interval : number of steps to wait before saving the next checkpoint and optionally
-            generating some output images. Default is 1000.
-        generate_progress_images : whether to generate a grid of images every `checkpoint_interval` steps.
+        `checkpoint_interval` : Number of steps to wait before saving the next checkpoint and optionally
+            generating some output images. Default value is 1000.
+        `generate_progress_images` : Whether to generate a grid of images every `checkpoint_interval` steps.
             Default value is True.
         """
         self.model_index = model_index
@@ -321,7 +319,7 @@ class StyleGan2():
 
     def _generator_step(self, step_idx):
         """
-        Do one step of training the generator (and mapping network).
+        Do one step of training the generator and mapping network.
         """
         self.generator_optim.zero_grad()
         self.mapping_network_optim.zero_grad()
@@ -363,7 +361,7 @@ class StyleGan2():
 
     def _do_step(self, step_idx):
         """
-        Do one step.
+        Do one training step.
         """
         # We don't care about the targets
         batch_num, (inputs, _) = next(self.train_loader)
@@ -379,6 +377,9 @@ class StyleGan2():
 
 
     def train_model(self):
+        """
+        Train the model. The function prints the hyperparameters that are used at the beginning.
+        """
         # Don't think setting .train() makes that much of a difference but it's good practice
         self.mapping_network.train()
         self.generator.train()
@@ -464,19 +465,23 @@ class StyleGan2():
         )
 
 
-    def load_model(self, path_to_model):
+    def load_model(self, path_to_model: str):
         """
         Load the model from `path_to_model`. The path must contain the <model_name>.pth file itself.
         """
         if not os.path.exists(path_to_model):
             LOGGER.error(f"Model doesn't exist on path {path_to_model}")
             return
+        
+        if not path_to_model.endswith((".pth", ".pt")):
+            LOGGER.error(f"The path to model doesn't end with '.pt' or '.pth'.")
+            return
 
         LOGGER.info(f"Loading model from {path_to_model}")
 
         checkpoint = torch.load(path_to_model, map_location=self.device)
 
-        # Non-default hyperparameters
+        # Read all hyperparameters
         self.root = checkpoint["root"]
         self.model_index = checkpoint["model_index"]
         self.gan_lr = checkpoint["gan_lr"]
@@ -493,7 +498,7 @@ class StyleGan2():
         self.checkpoint_interval = checkpoint["checkpoint_interval"]
         self.generate_progress_images = True
 
-        # Model
+        # Load model state dicts
         self.mapping_network.load_state_dict(checkpoint["mapping_network"])
         self.generator.load_state_dict(checkpoint["generator"])
         self.discriminator.load_state_dict(checkpoint["discriminator"])
@@ -506,7 +511,7 @@ class StyleGan2():
             self.path_length_interval = 16
             self.path_length_reg.load_state_dict(checkpoint["path_length_reg"])
 
-        # Optimizers
+        # Load optimizer state dicts
         self.mapping_network_optim.load_state_dict(checkpoint["mapping_network_optim"])
         self.generator_optim.load_state_dict(checkpoint["generator_optim"])
         self.discriminator_optim.load_state_dict(checkpoint["discriminator_optim"])

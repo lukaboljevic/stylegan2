@@ -15,18 +15,18 @@ def setup_data_loaders(root, batch_size, image_size=64, train_subset_size=-1, re
 
     Parameters
     ----------
-    root : path to the directory containing the `celeba` folder, either absolute or relative to the 
+    `root` : Path to the directory containing the `celeba` folder, either absolute or relative to the 
         script this function is being called in.
-    batch_size : batch size to be forwarded to DataLoader
-    image_size : what size to resize images to (this will be the size StyleGAN2 will generate images at)    
-    train_subset_size : whether to use the entire training set (train_subset_size=-1), or a subset of
+    `batch_size` : Batch size to be forwarded to DataLoader
+    `image_size` : What size to resize images to (this will be the size StyleGAN2 will generate images at)    
+    `train_subset_size` : Whether to use the entire training set (train_subset_size=-1), or a subset of
         it of given size.
-    return_test_loader : whether to return the DataLoader for test dataset as well
+    `return_test_loader` : Whether to return the DataLoader for test dataset as well
 
     Returns
     -------
-    train_loader : DataLoader for training dataset
-    test_loader : None if return_test_loader=False, else DataLoader for test dataset
+    `train_loader` : DataLoader for training dataset
+    `test_loader` : None if return_test_loader=False, else DataLoader for test dataset
     """
 
     # Understanding transforms.Normalize():
@@ -74,6 +74,9 @@ def setup_data_loaders(root, batch_size, image_size=64, train_subset_size=-1, re
 
 
 def cycle_data_loader(data_loader):
+    """
+    Makes the DataLoader cyclic - if its end is reached, it will return batches from the start again.
+    """
     while True:
         for idx, batch in enumerate(data_loader):
             yield idx, batch

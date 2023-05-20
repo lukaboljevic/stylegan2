@@ -12,11 +12,11 @@ class MappingNetwork(nn.Module):
 
         Parameters
         ----------
-        dim_latent : dimension of latent variables `z` and `w`, i.e. the input and output
+        `dim_latent` : Dimension of latent variables `z` and `w`, i.e. the input and output
             of the mapping network respectively
-        w_avg_beta : tbh not really sure, it's related to the truncation trick StyleGAN(2) uses: 
-            https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L185
-            https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L212
+        `w_avg_beta` : Related to the truncation trick StyleGAN(2) uses: 
+            - https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L185
+            - https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/training/networks.py#L212
         """
         super().__init__()
 
@@ -36,11 +36,11 @@ class MappingNetwork(nn.Module):
         """
         Parameters
         ----------
-        z : random vector of shape [batch_size, dim_latent]
+        `z` : Random vector of shape [batch_size, dim_latent]
 
         Returns
         -------
-        w : intermediate latent variable of shape [batch_size, dim_latent]
+        `w` : Intermediate latent variable of shape [batch_size, dim_latent]
         """
         z = nn.functional.normalize(z)  # dim=1 is default
         out = self.net(z)
