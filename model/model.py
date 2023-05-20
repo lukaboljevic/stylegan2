@@ -180,7 +180,6 @@ class StyleGan2:
             "avg_generator_loss": avg_generator_loss,
             "avg_discriminator_loss": avg_discriminator_loss,
             # Add hyperparameters and stuff
-            "root": self.root,
             "model_index": self.model_index,
             "gan_lr": self.gan_lr,
             "mapping_network_lr": self.mapping_network_lr,
@@ -481,7 +480,6 @@ class StyleGan2:
         checkpoint = torch.load(path_to_model, map_location=self.device)
 
         # Read all hyperparameters
-        self.root = checkpoint["root"]
         self.model_index = checkpoint["model_index"]
         self.gan_lr = checkpoint["gan_lr"]
         self.mapping_network_lr = checkpoint["mapping_network_lr"]
@@ -492,7 +490,6 @@ class StyleGan2:
         self.adam_betas = tuple(checkpoint["adam_betas"])
         self.gamma = checkpoint["gamma"]
         self.gradient_accumulate_steps = checkpoint["gradient_accumulate_steps"]
-        self.checkpoint_interval = checkpoint["checkpoint_interval"]
         self.use_regularization = checkpoint["use_regularization"]
         self.checkpoint_interval = checkpoint["checkpoint_interval"]
         self.generate_progress_images = True
