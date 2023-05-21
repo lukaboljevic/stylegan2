@@ -1,5 +1,5 @@
 .venv/
 venv/
-celeba/
+celeba*/
 __pycache__/
 checkpoints/
