@@ -130,6 +130,12 @@ class StyleGan2:
             betas=self.adam_betas
         )
 
+        self._update_hyperparam_dict()
+
+        LOGGER.info("Model set up")
+
+
+    def _update_hyperparam_dict(self):
         # Put everything together to log when we start training
         self.hyperparameters = {
             "Num train steps": self.num_training_steps,
@@ -144,8 +150,6 @@ class StyleGan2:
             "Use loss regularization": self.use_regularization,
             "Save checkpoint every": self.checkpoint_interval,
         }
-
-        LOGGER.info("Model set up")
 
 
     def _save_checkpoint(self,
@@ -378,23 +382,39 @@ class StyleGan2:
         return generator_loss.item(), discriminator_loss.item()
 
 
-    def train_model(self):
+    def train_model(self, continue_training_for=-1):
         """
         Train the model. The function prints the hyperparameters that are used at the beginning.
+
+        Parameter `continue_training_for` should be used if you are loading for a pretrained model, and 
+        want to continue training for some amount of additional steps. If you are training a model from
+        scratch, don't set any value for it, i.e. its value should be -1.
         """
         # Don't think setting .train() makes that much of a difference but it's good practice
         self.mapping_network.train()
         self.generator.train()
         self.discriminator.train()
-        LOGGER.info("Starting training")
+        if continue_training_for == -1:
+            LOGGER.info("Starting training")
+        else:
+            LOGGER.info(f"Continuing training for {continue_training_for} steps")
         LOGGER.info(f"Model index: {self.model_index}")
         LOGGER.info(f"Training on {self.device.upper()}")
         LOGGER.info(f"Setup:\n{json.dumps(self.hyperparameters, indent=4)}")
 
         avg_gen_loss, avg_disc_loss = 0.0, 0.0
+        if continue_training_for == -1:
+            # We're training from scratch
+            total = self.num_training_steps
+            steps = range(self.num_training_steps)
+        else:
+            # We're training an additional `continue_training_for` steps
+            total = continue_training_for
+            steps = range(self.num_training_steps,
+                          self.num_training_steps + continue_training_for)
 
-        with tqdm(total=self.num_training_steps, ncols=100) as pbar:
-            for step in range(self.num_training_steps):
+        with tqdm(total=total, ncols=100) as pbar:
+            for step in steps:
                 # Do one step
                 gen_loss, disc_loss = self._do_step(step)
                 avg_gen_loss += gen_loss
@@ -431,6 +451,10 @@ class StyleGan2:
                     self._generate_images(step + 1, truncation_psi=0.5)
                     self._generate_images(step + 1, truncation_psi=1)
                 print()
+
+        if continue_training_for != -1:
+            self.num_training_steps += continue_training_for
+            self._update_hyperparam_dict()
 
 
     def generate_output(self, num_images, num_rows, base_path="./", truncation_psi=1, seed=None):
@@ -518,19 +542,6 @@ class StyleGan2:
         )
         self.train_loader = cycle_data_loader(self.train_loader)
 
-        # Put everything together to log when we start training
-        self.hyperparameters = {
-            "Num train steps": self.num_training_steps,
-            "Num train images": self.num_training_images,
-            "Gen and Disc LR": self.gan_lr,
-            "Mapping LR": self.mapping_network_lr,
-            "Batch size": self.batch_size,
-            "Latent dim": self.dim_latent,
-            "Adam betas": self.adam_betas,
-            "R1 reg. gamma": self.gamma,
-            "Gradient accumulate steps": self.gradient_accumulate_steps,
-            "Use loss regularization": self.use_regularization,
-            "Save checkpoint every": self.checkpoint_interval,
-        }
+        self._update_hyperparam_dict()
 
         LOGGER.info("Model loaded")

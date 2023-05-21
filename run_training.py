@@ -1,6 +1,10 @@
 from model.model import StyleGan2
 
 
+"""
+Script to train model from scratch
+"""
+
 # Hyperparameters
 root                        = "./"          # Directory where `celeba` is located
 model_idx                   = 1             # Unique identifier for the model, mostly for saving purposes
@@ -40,10 +44,9 @@ model.train_model()
 model.save_model()
 
 # Generate some output
-# "Bug"?
-# https://github.com/labmlai/annotated_deep_learning_paper_implementations/issues/107
-# Update: truncation trick might solve it?
-# Update 2: that's called mode collapse =) gradient_accumulate_steps might solve it:
-# https://github.com/lucidrains/stylegan2-pytorch/issues/183
+# WARNING: If all 16 images are pretty much exactly the same, even after ~1k steps,
+# you are experiencing mode collapse.
+# Try different learning rates, and/or different gradient_accumulate_steps. Those are
+# generally the culprits (at least from my experience)
 model.generate_output(16, 4, truncation_psi=0.5)
 model.generate_output(16, 4, truncation_psi=0.8)
