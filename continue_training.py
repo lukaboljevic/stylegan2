@@ -11,8 +11,8 @@ model = StyleGan2(root=root)
 # Pretrained model
 model.load_model(path_to_model="./stylegan2-3idx-10000steps.pth")
 
-# Train for an additional 10 steps
-model.train_model(continue_training_for=10)
+# Train for an additional 10000 steps
+model.train_model(continue_training_for=10000)
 
 # Save
 model.save_model()

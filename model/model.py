@@ -212,6 +212,8 @@ class StyleGan2:
         checkpoint=True,
         truncation_psi=1,
         seed=None,
+        output_name=None,
+        log=True
     ):
         """
         Generate images using the current state of generator, using `base_path` as the root directory.
@@ -225,10 +227,13 @@ class StyleGan2:
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
-        save_name = f"stylegan2-{self.model_index}idx-{current_num_steps}steps-{truncation_psi}trunc"
-        if seed is not None:
-            save_name += f"-{seed}seed"
-        save_name += ".png"
+        if output_name is None:
+            save_name = f"stylegan2-{self.model_index}idx-{current_num_steps}steps-{truncation_psi}trunc"
+            if seed is not None:
+                save_name += f"-{seed}seed"
+            save_name += ".jpg"
+        else:
+            save_name = output_name
         save_path = os.path.join(save_dir, save_name)
 
         with torch.no_grad():
@@ -245,7 +250,8 @@ class StyleGan2:
             image_grid = make_grid(images, nrow=num_rows).permute(1, 2, 0).cpu().numpy()
             Image.fromarray(image_grid, mode="RGB").save(save_path)
 
-        LOGGER.info(f"Generated images saved to {save_path}")
+        if log:
+            LOGGER.info(f"Generated images saved to {save_path}")
 
 
     def _generator_output(self, batch_size=-1, truncation_psi=1, seed=None):
@@ -457,12 +463,27 @@ class StyleGan2:
             self._update_hyperparam_dict()
 
 
-    def generate_output(self, num_images, num_rows, base_path="./", truncation_psi=1, seed=None):
+    def generate_output(self,
+        num_images,
+        num_rows,
+        base_path="./",
+        truncation_psi=1,
+        seed=None,
+        output_name=None,
+        log=True
+    ):
         """
         Generate `num_images` images in a grid with `num_rows` rows using the fully
         trained generator. Images are saved in `base_path`.
+
+        If `output_name` is specified, the image will be saved as `output_name` or
+        `output_name.jpg`.
         """
-        LOGGER.info(f"Generating images")
+        if output_name is not None and not output_name.endswith(".jpg"):
+            output_name += ".jpg"
+
+        if log:
+            LOGGER.info(f"Generating images")
         self._generate_images(
             self.num_training_steps,
             num_images=num_images,
@@ -471,6 +492,8 @@ class StyleGan2:
             checkpoint=False,
             truncation_psi=truncation_psi,
             seed=seed,
+            output_name=output_name,
+            log=log
         )
 
 
