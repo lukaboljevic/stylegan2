@@ -1,6 +1,7 @@
 import os
 import torchvision as tv
 from PIL import Image
+from tqdm import tqdm
 
 
 """
@@ -15,7 +16,7 @@ images = data.filename
 if not os.path.exists(dest_dir):
     os.mkdir(dest_dir)
 
-for num, imagename in enumerate(images):
+for num, imagename in tqdm(enumerate(images)):
     if num > 20000:
         break
 
